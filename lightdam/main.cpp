@@ -1,6 +1,8 @@
 #include <iostream>
+#include "Application.h"
 
-int main()
+int main(int argc, char** argv)
 {
-    std::cout << "Hello World!\n"; 
+	Application application(argc, argv);
+	return application.Run();
 }
