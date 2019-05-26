@@ -7,12 +7,11 @@ class Window;
 class Application
 {
 public:
-	Application(int argc, char** argv);
-	~Application();
+    Application(int argc, char** argv);
+    ~Application();
 
-	int Run();
+    int Run();
 
 private:
-	std::unique_ptr<Window> m_window;
+    std::unique_ptr<Window> m_window;
 };
-
