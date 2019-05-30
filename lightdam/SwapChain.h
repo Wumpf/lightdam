@@ -13,9 +13,9 @@ public:
 
     unsigned int GetCurrentFrameIndex() const { return m_frameIndex; }
 
-    ID3D12Resource* GetRenderTarget(int index) const     { return m_renderTargets[index].Get(); }
-    ID3D12Resource* GetCurrentRenderTarget() const       { return m_renderTargets[m_frameIndex].Get(); }
-    D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetDescriptorHandle() const;
+    ID3D12Resource* GetBackbuffer(int index) const  { return m_backbuffers[index].Get(); }
+    ID3D12Resource* GetCurrentRenderTarget() const  { return m_backbuffers[m_frameIndex].Get(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetActiveBackbufferDescriptorHandle() const;
 
     ID3D12CommandQueue* GetGraphicsCommandQueue() const  { return m_graphicsCommandQueue.Get(); }
 
@@ -29,11 +29,11 @@ public:
     static const int FrameCount = 2;
 
 private:
-    ComPtr<ID3D12CommandQueue>   m_graphicsCommandQueue;
-    ComPtr<struct IDXGISwapChain3>      m_swapChain;
-    ComPtr<ID3D12Resource>       m_renderTargets[FrameCount];
-    ComPtr<ID3D12DescriptorHeap> m_backbufferDescripterHeap;
-    unsigned int                        m_rtvDescriptorSize;
+    ComPtr<ID3D12CommandQueue>      m_graphicsCommandQueue;
+    ComPtr<struct IDXGISwapChain3>  m_swapChain;
+    ComPtr<ID3D12Resource>          m_backbuffers[FrameCount];
+    ComPtr<ID3D12DescriptorHeap>    m_backbufferDescripterHeap;
+    unsigned int                    m_rtvDescriptorSize;
 
     // Synchronization objects.
     unsigned int m_frameIndex;

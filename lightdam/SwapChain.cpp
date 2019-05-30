@@ -44,7 +44,7 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     ThrowIfFailed(swapChain.As(&m_swapChain));
 
     for (UINT n = 0; n < FrameCount; n++)
-        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_backbuffers[n])));
 
 
     // Describe and create a render target view (RTV) descriptor heap.
@@ -60,7 +60,7 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     for (UINT i = 0; i < SwapChain::FrameCount; i++)
     {
-        device->CreateRenderTargetView(GetRenderTarget(i), nullptr, rtvHandle);
+        device->CreateRenderTargetView(GetBackbuffer(i), nullptr, rtvHandle);
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
 }
@@ -71,7 +71,7 @@ SwapChain::~SwapChain()
     CloseHandle(m_fenceEvent);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentRenderTargetDescriptorHandle() const
+D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetActiveBackbufferDescriptorHandle() const
 {
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_backbufferDescripterHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
     return rtvHandle;

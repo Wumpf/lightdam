@@ -133,7 +133,7 @@ void Application::PopulateCommandList()
 
     // Indicate that the back buffer will be used as a render target.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-    auto rtvHandle = m_swapChain->GetCurrentRenderTargetDescriptorHandle();
+    auto rtvHandle = m_swapChain->GetActiveBackbufferDescriptorHandle();
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
