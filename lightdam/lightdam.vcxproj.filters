@@ -4,9 +4,14 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Window.cpp" />
+    <ClCompile Include="ErrorHandling.cpp" />
+    <ClCompile Include="SwapChain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Window.h" />
+    <ClInclude Include="DXHelper.h" />
+    <ClInclude Include="ErrorHandling.h" />
+    <ClInclude Include="SwapChain.h" />
   </ItemGroup>
 </Project>

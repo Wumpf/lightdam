@@ -26,10 +26,10 @@ Window::Window(const wchar_t* windowName, const wchar_t* windowTitle, int width,
         CW_USEDEFAULT,
         windowRect.right - windowRect.left,
         windowRect.bottom - windowRect.top,
-        nullptr,		// parent
-        nullptr,		// menu
+        nullptr,        // parent
+        nullptr,        // menu
         windowClass.hInstance,
-        nullptr			// param
+        nullptr         // param
     );
 
     ShowWindow((HWND)m_hwnd, 1);
@@ -39,16 +39,30 @@ Window::~Window()
 {
 }
 
-int Window::ProcessWindowMessages()
+void Window::ProcessWindowMessages()
 {
     MSG msg = {};
-    while (GetMessage(&msg, (HWND)m_hwnd, 0, 0))
+    while (PeekMessage(&msg, (HWND)m_hwnd, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-    }
 
-    return (int)msg.wParam;
+        if (msg.message == WM_QUIT)
+        {
+            m_closed = true;
+            return;
+        }
+    }
+}
+
+void Window::GetSize(unsigned int& width, unsigned int& height) const
+{
+    RECT rect = {};
+    ::GetClientRect((HWND)m_hwnd, &rect);
+
+    // rect.left/top are defined to be zero.
+    width = rect.right;
+    height = rect.bottom;
 }
 
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
