@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Window.h"
 #include "SwapChain.h"
+#include "Gui.h"
 
 #include "ErrorHandling.h"
 #include "DXHelper.h"
@@ -16,10 +17,15 @@ Application::Application(int argc, char** argv)
 {
     CreateDeviceAndSwapChain();
     CreateFrameResources();
+
+    m_gui.reset(new Gui(m_window.get(), m_device.Get()));
 }
 
 Application::~Application()
 {
+    m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+
+    m_gui.reset();
     m_swapChain.reset();
     m_window.reset();
     for (int i = 0; i < SwapChain::FrameCount; ++i)
@@ -111,7 +117,7 @@ void Application::RenderFrame()
     // Execute lists and swap.
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
     m_swapChain->GetGraphicsCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-    
+
     m_swapChain->PresentAndSwitchToNextFrame();
 }
 
@@ -142,6 +148,7 @@ void Application::PopulateCommandList()
     //m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     //m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     //m_commandList->DrawInstanced(3, 1, 0, 0);
+    m_gui->Draw(m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

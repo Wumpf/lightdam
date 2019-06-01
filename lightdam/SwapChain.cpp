@@ -35,7 +35,7 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     ComPtr<IDXGISwapChain1> swapChain;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(
         m_graphicsCommandQueue.Get(),
-        (HWND)window.GetHandle(),
+        window.GetHandle(),
         &swapChainDesc,
         nullptr, // fullscreen desc
         nullptr, // restrict to output

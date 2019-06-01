@@ -29,7 +29,7 @@ Window::Window(const wchar_t* windowName, const wchar_t* windowTitle, int width,
         nullptr,        // parent
         nullptr,        // menu
         windowClass.hInstance,
-        nullptr         // param
+        this
     );
 
     ShowWindow((HWND)m_hwnd, 1);
@@ -37,6 +37,19 @@ Window::Window(const wchar_t* windowName, const wchar_t* windowTitle, int width,
 
 Window::~Window()
 {
+}
+
+Window::ProcHandlerHandle Window::AddProcHandler(const Window::WndProcHandler& handler)
+{
+    auto handle = m_nextProcHandlerHandle;
+    m_procHandlers.insert(std::make_pair(m_nextProcHandlerHandle, handler));
+    ++m_nextProcHandlerHandle;
+    return handle;
+}
+
+void Window::RemoveProcHandler(Window::ProcHandlerHandle handle)
+{
+    m_procHandlers.erase(handle);
 }
 
 void Window::ProcessWindowMessages()
@@ -58,7 +71,7 @@ void Window::ProcessWindowMessages()
 void Window::GetSize(unsigned int& width, unsigned int& height) const
 {
     RECT rect = {};
-    ::GetClientRect((HWND)m_hwnd, &rect);
+    ::GetClientRect(m_hwnd, &rect);
 
     // rect.left/top are defined to be zero.
     width = rect.right;
@@ -67,7 +80,15 @@ void Window::GetSize(unsigned int& width, unsigned int& height) const
 
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    //auto application = reinterpret_cast<Application*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    auto window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    if (window)
+    {
+        for (const auto handler : window->m_procHandlers)
+        {
+            if (handler.second(hWnd, message, wParam, lParam))
+                return true;
+        }
+    }
 
     switch (message)
     {
