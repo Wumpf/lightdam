@@ -55,16 +55,16 @@ void Window::RemoveProcHandler(Window::ProcHandlerHandle handle)
 void Window::ProcessWindowMessages()
 {
     MSG msg = {};
-    while (PeekMessage(&msg, (HWND)m_hwnd, 0, 0, PM_REMOVE))
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-
         if (msg.message == WM_QUIT)
         {
             m_closed = true;
             return;
         }
+
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 }
 
@@ -105,7 +105,6 @@ static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
             PostQuitMessage(0);
         return 0;
 
-    case WM_CLOSE:
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
