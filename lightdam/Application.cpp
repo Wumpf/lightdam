@@ -2,6 +2,7 @@
 #include "Window.h"
 #include "SwapChain.h"
 #include "Gui.h"
+#include <dxgi1_6.h>
 
 #include "ErrorHandling.h"
 #include "DXHelper.h"
@@ -28,7 +29,7 @@ Application::~Application()
     m_gui.reset();
     m_swapChain.reset();
     m_window.reset();
-    for (int i = 0; i < SwapChain::FrameCount; ++i)
+    for (int i = 0; i < SwapChain::MaxFramesInFlight; ++i)
         m_commandAllocators[i] = nullptr;
     m_commandList = nullptr;
     m_device = nullptr;
@@ -71,7 +72,7 @@ void Application::CreateDeviceAndSwapChain()
         }
     }
 #endif
-    ComPtr<IDXGIFactory4> dxgiFactory;
+    ComPtr<IDXGIFactory5> dxgiFactory;
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&dxgiFactory)));
 
     // Pick first hardward adapter.
@@ -100,7 +101,7 @@ void Application::CreateDeviceAndSwapChain()
 void Application::CreateFrameResources()
 {
     // Command allocator.
-    for (UINT i = 0; i < SwapChain::FrameCount; i++)
+    for (UINT i = 0; i < SwapChain::MaxFramesInFlight; i++)
         ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[i])));
 
     // Create the command list.
@@ -112,13 +113,15 @@ void Application::CreateFrameResources()
 
 void Application::RenderFrame()
 {
+    m_swapChain->BeginFrame();
+
     PopulateCommandList();
 
     // Execute lists and swap.
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
     m_swapChain->GetGraphicsCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    m_swapChain->PresentAndSwitchToNextFrame();
+    m_swapChain->Present();
 }
 
 void Application::PopulateCommandList()

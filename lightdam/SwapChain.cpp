@@ -10,7 +10,6 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
 {
     // Create synchronization objects.
     ThrowIfFailed(device->CreateFence(m_fenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-    m_fenceValues[m_frameIndex]++;
     m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (m_fenceEvent == nullptr)
     {
@@ -25,12 +24,21 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
 
     // Create swapchain
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-    swapChainDesc.BufferCount = FrameCount;
+    swapChainDesc.BufferCount = BufferCount;
     swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+    swapChainDesc.Scaling = DXGI_SCALING_NONE;
     window.GetSize(swapChainDesc.Width, swapChainDesc.Height);
+
+    // TODO, try out swapchain with tearing.
+    // Since we discard frames in present and we always have more than one in flight, this shouldn't add any benefit (other than support for freesync screens etc.)
+    // (this is unlike pre-FLIP where tearing was the only way to run at a higher framerate than the screen)
+    //BOOL allowTearing = FALSE;
+    //auto result = dxgiFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
+
 
     ComPtr<IDXGISwapChain1> swapChain;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(
@@ -43,13 +51,14 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     ));
     ThrowIfFailed(swapChain.As(&m_swapChain));
 
-    for (UINT n = 0; n < FrameCount; n++)
+    for (UINT n = 0; n < BufferCount; n++)
         ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_backbuffers[n])));
 
+    m_swapChain->SetMaximumFrameLatency(MaxFramesInFlight);
 
     // Describe and create a render target view (RTV) descriptor heap.
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.NumDescriptors = SwapChain::FrameCount;
+    rtvHeapDesc.NumDescriptors = SwapChain::BufferCount;
     rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     ThrowIfFailed(device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_backbufferDescripterHeap)));
@@ -58,9 +67,9 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     // Create a RTV and a command allocator for each frame.
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_backbufferDescripterHeap->GetCPUDescriptorHandleForHeapStart());
     auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    for (UINT i = 0; i < SwapChain::FrameCount; i++)
+    for (UINT i = 0; i < SwapChain::BufferCount; i++)
     {
-        device->CreateRenderTargetView(GetBackbuffer(i), nullptr, rtvHandle);
+        device->CreateRenderTargetView(m_backbuffers[i].Get(), nullptr, rtvHandle);
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
 }
@@ -73,12 +82,14 @@ SwapChain::~SwapChain()
 
 D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetActiveBackbufferDescriptorHandle() const
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_backbufferDescripterHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_backbufferDescripterHeap->GetCPUDescriptorHandleForHeapStart(), m_bufferIndex, m_rtvDescriptorSize);
     return rtvHandle;
 }
 
 void SwapChain::WaitUntilGraphicsQueueProcessingDone()
 {
+    m_swapChain->GetFrameLatencyWaitableObject();
+
     // Schedule a Signal command in the queue.
     ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
 
@@ -88,21 +99,20 @@ void SwapChain::WaitUntilGraphicsQueueProcessingDone()
         throw std::exception("Waited for more than 10s on gpu work!");
 
     // Increment the fence value for the current frame.
-    m_fenceValues[m_frameIndex]++;
+    ++m_fenceValues[m_frameIndex];
 }
 
-void SwapChain::PresentAndSwitchToNextFrame()
+void SwapChain::BeginFrame()
 {
-    ThrowIfFailed(m_swapChain->Present(1, 0));
+    // Wait for frame latency waitable object.
+    if (WaitForSingleObject(m_swapChain->GetFrameLatencyWaitableObject(), 1000 * 10))
+        throw std::exception("Waited for more than 10s on gpu work!");
 
-    // Schedule a Signal command in the queue.
-    const UINT64 currentFenceValue = m_fenceValues[m_frameIndex];
-    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), currentFenceValue));
+    // Advance frameindex
+    m_bufferIndex = m_swapChain->GetCurrentBackBufferIndex();
+    m_frameIndex = (m_frameIndex + 1) % MaxFramesInFlight;
 
-    // Update the frame index.
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
-
-    // If the next frame is not ready to be rendered yet, wait until it is ready.
+    // If the frame at this slot, is not ready yet, wait until it is ready.
     if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
     {
         ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
@@ -111,5 +121,15 @@ void SwapChain::PresentAndSwitchToNextFrame()
     }
 
     // Set the fence value for the next frame.
-    m_fenceValues[m_frameIndex] = currentFenceValue + 1;
+    ++m_fenceValues[m_frameIndex];
+}
+
+void SwapChain::Present()
+{
+    // Sync interval is zero, meaning we use the neweset available buffer and potentially discard others in the queue.
+    // This is a FLIP chain, therefore THIS does imply not disabled vsync, DXGI_FEATURE_PRESENT_ALLOW_TEARING does.
+    ThrowIfFailed(m_swapChain->Present(0, 0));
+
+    // Schedule a Signal command in the queue.
+    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
 }

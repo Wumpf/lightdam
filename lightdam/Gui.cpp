@@ -23,7 +23,7 @@ Gui::Gui(Window* window, ID3D12Device* device)
     if (!ImGui_ImplWin32_Init(window->GetHandle()))
         throw new std::exception("Failed ImGUI Win32 init");
     // If our swapchain format changes (HDR?) we need to pass swapchain through here, but that's not in sight.
-    if (!ImGui_ImplDX12_Init(device, SwapChain::FrameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
+    if (!ImGui_ImplDX12_Init(device, SwapChain::MaxFramesInFlight, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_fontDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_fontDescriptorHeap->GetGPUDescriptorHandleForHeapStart()))
         throw new std::exception("Failed ImGUI DX12 init");
 

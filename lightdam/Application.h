@@ -28,6 +28,6 @@ private:
 
     ComPtr<struct ID3D12Device>             m_device;
 
-    ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::FrameCount];
+    ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
     ComPtr<struct ID3D12GraphicsCommandList> m_commandList;
 };

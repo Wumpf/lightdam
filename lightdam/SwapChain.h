@@ -12,9 +12,7 @@ public:
     ~SwapChain();
 
     unsigned int GetCurrentFrameIndex() const { return m_frameIndex; }
-
-    ID3D12Resource* GetBackbuffer(int index) const  { return m_backbuffers[index].Get(); }
-    ID3D12Resource* GetCurrentRenderTarget() const  { return m_backbuffers[m_frameIndex].Get(); }
+    ID3D12Resource* GetCurrentRenderTarget() const  { return m_backbuffers[m_bufferIndex].Get(); }
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveBackbufferDescriptorHandle() const;
 
     ID3D12CommandQueue* GetGraphicsCommandQueue() const  { return m_graphicsCommandQueue.Get(); }
@@ -22,22 +20,34 @@ public:
     // Blocks until all gpu work is done on the graphics command queue.
     void WaitUntilGraphicsQueueProcessingDone();
 
-    // Calls present and waits until 
-    void PresentAndSwitchToNextFrame();
+    // * waits until a backbuffer is available for rendering
+    // * advances the frame index
+    // * ensures frame resources are not still in use by gpu
+    void BeginFrame();
 
-    // Two frame buffers, i.e. triple buffering.
-    static const int FrameCount = 2;
+    // Calls present and switches the active frame index.
+    void Present();
+
+    static const int MaxFramesInFlight = 2;
 
 private:
+
+    // As by recommendation of Nvidia and Intel, we have one more buffer than we fill with the gpu.
+    // https://developer.nvidia.com/dx12-dos-and-donts
+    // https://software.intel.com/en-us/articles/sample-application-for-direct3d-12-flip-model-swap-chains
+    // At any point the flip-mode swap chain may look one of its buffers, so we should account for that.
+    static const int BufferCount = MaxFramesInFlight + 1;
+
     ComPtr<ID3D12CommandQueue>      m_graphicsCommandQueue;
     ComPtr<struct IDXGISwapChain3>  m_swapChain;
-    ComPtr<ID3D12Resource>          m_backbuffers[FrameCount];
+    ComPtr<ID3D12Resource>          m_backbuffers[BufferCount];
     ComPtr<ID3D12DescriptorHeap>    m_backbufferDescripterHeap;
     unsigned int                    m_rtvDescriptorSize;
 
     // Synchronization objects.
     unsigned int m_frameIndex;
+    unsigned int m_bufferIndex;
     void* m_fenceEvent;
     ComPtr<struct ID3D12Fence> m_fence;
-    unsigned long long m_fenceValues[FrameCount];
+    unsigned long long m_fenceValues[MaxFramesInFlight];
 };
