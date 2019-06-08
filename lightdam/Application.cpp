@@ -2,10 +2,12 @@
 #include "Window.h"
 #include "SwapChain.h"
 #include "Gui.h"
-#include <dxgi1_6.h>
-
+#include "Scene.h"
 #include "ErrorHandling.h"
-#include "DXHelper.h"
+
+#include <dxgi1_6.h>
+#include "../external/d3dx12.h"
+
 #include <dxgi1_4.h>
 #include <dxgidebug.h>
 
@@ -20,12 +22,14 @@ Application::Application(int argc, char** argv)
     CreateFrameResources();
 
     m_gui.reset(new Gui(m_window.get(), m_device.Get()));
+    m_scene = Scene::LoadScene(m_device.Get());
 }
 
 Application::~Application()
 {
     m_swapChain->WaitUntilGraphicsQueueProcessingDone();
 
+    m_scene.reset();
     m_gui.reset();
     m_swapChain.reset();
     m_window.reset();

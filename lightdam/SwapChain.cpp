@@ -1,8 +1,9 @@
 #include "SwapChain.h"
-#include "DXHelper.h"
 #include "ErrorHandling.h"
 #include "Window.h"
+
 #include <dxgi1_6.h>
+#include "../external/d3dx12.h"
 
 SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12Device* device)
     : m_frameIndex(0)

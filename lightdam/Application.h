@@ -25,9 +25,10 @@ private:
     std::unique_ptr<class Window> m_window;
     std::unique_ptr<class SwapChain> m_swapChain;
     std::unique_ptr<class Gui> m_gui;
-
-    ComPtr<struct ID3D12Device>             m_device;
+    std::unique_ptr<class Scene> m_scene;
 
     ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
     ComPtr<struct ID3D12GraphicsCommandList> m_commandList;
+
+    ComPtr<struct ID3D12Device5>             m_device;
 };

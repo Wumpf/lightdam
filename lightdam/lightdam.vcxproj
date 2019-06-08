@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -161,10 +161,15 @@
     <ClCompile Include="..\external\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="BottomLevelAS.cpp" />
+    <ClCompile Include="GraphicsResource.cpp" />
+    <ClCompile Include="PathTracer.cpp" />
     <ClCompile Include="ErrorHandling.cpp" />
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Scene.cpp" />
     <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="TopLevelAS.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -178,10 +183,15 @@
     <ClInclude Include="..\external\imgui\imstb_textedit.h" />
     <ClInclude Include="..\external\imgui\imstb_truetype.h" />
     <ClInclude Include="Application.h" />
-    <ClInclude Include="DXHelper.h" />
+    <ClInclude Include="BottomLevelAS.h" />
+    <ClInclude Include="GraphicsResource.h" />
+    <ClInclude Include="MathUtils.h" />
+    <ClInclude Include="PathTracer.h" />
     <ClInclude Include="ErrorHandling.h" />
     <ClInclude Include="Gui.h" />
+    <ClInclude Include="Scene.h" />
     <ClInclude Include="SwapChain.h" />
+    <ClInclude Include="TopLevelAS.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -22,11 +22,15 @@
       <Filter>external\imgui\examples</Filter>
     </ClCompile>
     <ClCompile Include="Gui.cpp" />
+    <ClCompile Include="PathTracer.cpp" />
+    <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="BottomLevelAS.cpp" />
+    <ClCompile Include="TopLevelAS.cpp" />
+    <ClCompile Include="GraphicsResource.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Window.h" />
-    <ClInclude Include="DXHelper.h" />
     <ClInclude Include="ErrorHandling.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="..\external\d3dx12.h">
@@ -57,6 +61,12 @@
       <Filter>external\imgui\examples</Filter>
     </ClInclude>
     <ClInclude Include="Gui.h" />
+    <ClInclude Include="PathTracer.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="BottomLevelAS.h" />
+    <ClInclude Include="MathUtils.h" />
+    <ClInclude Include="TopLevelAS.h" />
+    <ClInclude Include="GraphicsResource.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
