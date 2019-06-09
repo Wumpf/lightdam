@@ -27,8 +27,7 @@ std::unique_ptr<TopLevelAS> TopLevelAS::Generate(const std::vector<BottomLevelAS
     tlas->m_descriptors = GraphicsResource::CreateUploadHeap(L"TLAS - instance descs", Align<uint64_t>(sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * blasInstances.size(), D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT), device);
 
     // Copy the descriptors in the target descriptor buffer
-    D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
-    tlas->m_descriptors->Map(0, nullptr, reinterpret_cast<void**>(&instanceDescs));
+    D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs = (D3D12_RAYTRACING_INSTANCE_DESC*)tlas->m_descriptors.Map();
     for (int i = 0; i < blasInstances.size(); i++)
     {
         instanceDescs[i].InstanceID = i;    // Instance ID visible in the shader in InstanceID()
@@ -39,7 +38,7 @@ std::unique_ptr<TopLevelAS> TopLevelAS::Generate(const std::vector<BottomLevelAS
         instanceDescs[i].AccelerationStructure = blasInstances[i].blas->GetGPUAddress();
         instanceDescs[i].InstanceMask = 0xFF; // always visible
     }
-    tlas->m_descriptors->Unmap(0, nullptr);
+    tlas->m_descriptors.Unmap();
 
     // Create actual TLAS.
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};

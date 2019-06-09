@@ -25,6 +25,18 @@ void GraphicsResource::operator=(GraphicsResource&& temp)
     temp.m_resource = nullptr;
 }
 
+void* GraphicsResource::Map(uint32_t subresource)
+{
+    void* data;
+    ThrowIfFailed(m_resource->Map(subresource, nullptr, &data));
+    return data;
+}
+
+void GraphicsResource::Unmap(uint32_t subresource)
+{
+    m_resource->Unmap(subresource, nullptr);
+}
+
 GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)
 {
     const D3D12_RESOURCE_STATES initState = scratch ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;

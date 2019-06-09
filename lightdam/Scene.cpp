@@ -32,10 +32,8 @@ std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* dev
         const UINT vertexBufferSize = sizeof(triangleVertices);
         vertexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle VB", sizeof(triangleVertices), device);
 
-        void* vertexBufferData;
-        ThrowIfFailed(vertexBuffer->Map(0, nullptr, &vertexBufferData));
-        memcpy(vertexBufferData, triangleVertices, sizeof(triangleVertices));
-        vertexBuffer->Unmap(0, nullptr);
+        ScopedResourceMap vertexBufferData(vertexBuffer);
+        memcpy(vertexBufferData.Get(), triangleVertices, sizeof(triangleVertices));
     }
 
     ComPtr<ID3D12CommandAllocator> commandAllocator;
