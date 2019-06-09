@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SwapChain.h"
+#include "Shader.h"
 
 struct IDxcBlob;
 
@@ -10,15 +11,19 @@ public:
     PathTracer();
     ~PathTracer();
 
+    void SetScene(class Scene& scene);
+
 private:
+    void LoadShaders();
+    void CreateRaytracingPipelineObject();
+    void CreateShaderBindingTable();
 
     ComPtr<ID3D12Resource> m_outputResource[SwapChain::MaxFramesInFlight];
     ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
 
-    ComPtr<IDxcBlob> m_rayGenLibrary;
-    ComPtr<IDxcBlob> m_hitLibrary;
-    ComPtr<IDxcBlob> m_missLibrary;
-    ComPtr<IDxcBlob> m_shadowLibrary;
+    Shader m_rayGenLibrary;
+    Shader m_hitLibrary;
+    Shader m_missLibrary;
 
     ComPtr<ID3D12RootSignature> m_rayGenSignature;
     ComPtr<ID3D12RootSignature> m_hitSignature;

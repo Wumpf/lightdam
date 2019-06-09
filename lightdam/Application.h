@@ -26,6 +26,7 @@ private:
     std::unique_ptr<class SwapChain> m_swapChain;
     std::unique_ptr<class Gui> m_gui;
     std::unique_ptr<class Scene> m_scene;
+    std::unique_ptr<class PathTracer> m_pathTracer;
 
     ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
     ComPtr<struct ID3D12GraphicsCommandList> m_commandList;

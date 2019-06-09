@@ -3,6 +3,7 @@
 #include "SwapChain.h"
 #include "Gui.h"
 #include "Scene.h"
+#include "PathTracer.h"
 #include "ErrorHandling.h"
 
 #include <dxgi1_6.h>
@@ -23,12 +24,16 @@ Application::Application(int argc, char** argv)
 
     m_gui.reset(new Gui(m_window.get(), m_device.Get()));
     m_scene = Scene::LoadScene(*m_swapChain, m_device.Get());
+
+    m_pathTracer.reset(new PathTracer());
+    m_pathTracer->SetScene(*m_scene);
 }
 
 Application::~Application()
 {
     m_swapChain->WaitUntilGraphicsQueueProcessingDone();
 
+    m_pathTracer.reset();
     m_scene.reset();
     m_gui.reset();
     m_swapChain.reset();
