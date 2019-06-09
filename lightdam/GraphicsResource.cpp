@@ -34,7 +34,8 @@ void* GraphicsResource::Map(uint32_t subresource)
 
 void GraphicsResource::Unmap(uint32_t subresource)
 {
-    m_resource->Unmap(subresource, nullptr);
+    if (m_resource)
+        m_resource->Unmap(subresource, nullptr);
 }
 
 GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)

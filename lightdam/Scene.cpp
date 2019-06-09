@@ -19,7 +19,6 @@ std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* dev
     auto scene = std::unique_ptr<Scene>(new Scene());
 
     // Testtriangle
-    GraphicsResource vertexBuffer;
     {
         // Define the geometry for a triangle.
         Vertex triangleVertices[] =
@@ -30,10 +29,14 @@ std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* dev
         };
 
         const UINT vertexBufferSize = sizeof(triangleVertices);
-        vertexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle VB", sizeof(triangleVertices), device);
+        Scene::Mesh mesh;
+        mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle VB", sizeof(triangleVertices), device);
+        mesh.vertexCount = 3;
 
-        ScopedResourceMap vertexBufferData(vertexBuffer);
+        ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
         memcpy(vertexBufferData.Get(), triangleVertices, sizeof(triangleVertices));
+
+        scene->m_meshes.emplace_back(std::move(mesh));
     }
 
     ComPtr<ID3D12CommandAllocator> commandAllocator;
@@ -41,10 +44,13 @@ std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* dev
     ComPtr<ID3D12GraphicsCommandList4> commandList;
     ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)));
 
-    BottomLevelASMesh mesh;
-    mesh.vertexBuffer = { vertexBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
-    mesh.vertexCount = 3;
-    auto blas = BottomLevelAS::Generate({ mesh }, commandList.Get(), device);
+    std::vector<BottomLevelASMesh> blasMeshes(scene->m_meshes.size());
+    for (int i = 0; i < scene->m_meshes.size(); ++i)
+    {
+        blasMeshes[i].vertexBuffer = { scene->m_meshes[i].vertexBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
+        blasMeshes[i].vertexCount = scene->m_meshes[i].vertexCount;
+    }
+    auto blas = BottomLevelAS::Generate(blasMeshes, commandList.Get(), device);
 
     auto instance = BottomLevelASInstance(blas.get());
     scene->m_tlas = TopLevelAS::Generate({ instance }, commandList.Get(), device);
