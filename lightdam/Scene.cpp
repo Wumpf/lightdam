@@ -30,7 +30,7 @@ std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* dev
         };
 
         const UINT vertexBufferSize = sizeof(triangleVertices);
-        vertexBuffer = GraphicsResource::CreateUploadHeap(sizeof(triangleVertices), device);
+        vertexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle VB", sizeof(triangleVertices), device);
 
         void* vertexBufferData;
         ThrowIfFailed(vertexBuffer->Map(0, nullptr, &vertexBufferData));

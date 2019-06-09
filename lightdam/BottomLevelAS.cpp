@@ -33,8 +33,8 @@ std::unique_ptr<BottomLevelAS> BottomLevelAS::Generate(const std::vector<BottomL
 
     // Create buffers.
     auto blas = std::unique_ptr<BottomLevelAS>(new BottomLevelAS());
-    blas->m_scratch = GraphicsResource::CreateBufferForAccellerationStructure(info.ScratchDataSizeInBytes, true, device);
-    blas->m_blas = GraphicsResource::CreateBufferForAccellerationStructure(info.ResultDataMaxSizeInBytes, false, device);
+    blas->m_scratch = GraphicsResource::CreateBufferForAccellerationStructure(L"BLAS - scratch", info.ScratchDataSizeInBytes, true, device);
+    blas->m_blas = GraphicsResource::CreateBufferForAccellerationStructure(L"BLAS - result", info.ResultDataMaxSizeInBytes, false, device);
 
     // Create actual BLAS.
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};

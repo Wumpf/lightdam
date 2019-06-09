@@ -25,7 +25,7 @@ void GraphicsResource::operator=(GraphicsResource&& temp)
     temp.m_resource = nullptr;
 }
 
-GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(uint64_t size, bool scratch, ID3D12Device5* device)
+GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)
 {
     const D3D12_RESOURCE_STATES initState = scratch ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
     size = Align<uint64_t>(size, scratch ? D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
@@ -39,10 +39,12 @@ GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(uint64_
         nullptr, // clear value
         IID_PPV_ARGS(&buffer)));
 
+    buffer->SetName(name);
+
     return GraphicsResource(buffer, size);
 }
 
-GraphicsResource GraphicsResource::CreateUploadHeap(uint64_t size, ID3D12Device5* device)
+GraphicsResource GraphicsResource::CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device)
 {
     ID3D12Resource* buffer;
     ThrowIfFailed(device->CreateCommittedResource(
@@ -52,6 +54,8 @@ GraphicsResource GraphicsResource::CreateUploadHeap(uint64_t size, ID3D12Device5
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr, // clear value
         IID_PPV_ARGS(&buffer)));
+
+    buffer->SetName(name);
 
     return GraphicsResource(buffer, size);
 }

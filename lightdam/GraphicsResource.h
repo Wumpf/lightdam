@@ -24,8 +24,8 @@ public:
     ID3D12Resource* operator ->() const { return m_resource; }
 
 
-    static GraphicsResource CreateBufferForAccellerationStructure(uint64_t size, bool scratch, ID3D12Device5* device);
-    static GraphicsResource CreateUploadHeap(uint64_t size, ID3D12Device5* device);
+    static GraphicsResource CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device);
+    static GraphicsResource CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device);
 
 private:
     ID3D12Resource* m_resource = nullptr;
