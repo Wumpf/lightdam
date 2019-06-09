@@ -22,7 +22,7 @@ Application::Application(int argc, char** argv)
     CreateFrameResources();
 
     m_gui.reset(new Gui(m_window.get(), m_device.Get()));
-    m_scene = Scene::LoadScene(m_device.Get());
+    m_scene = Scene::LoadScene(*m_swapChain, m_device.Get());
 }
 
 Application::~Application()

@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "TopLevelAS.h"
 #include "BottomLevelAS.h"
+#include "SwapChain.h"
 #include "ErrorHandling.h"
 #include "../external/d3dx12.h"
 
@@ -13,10 +14,9 @@ struct Vertex
     DirectX::XMFLOAT4 color;
 };
 
-std::unique_ptr<Scene> Scene::LoadScene(ID3D12Device5* device)
+std::unique_ptr<Scene> Scene::LoadScene(SwapChain& swapChain, ID3D12Device5* device)
 {
     auto scene = std::unique_ptr<Scene>(new Scene());
-
 
     // Testtriangle
     GraphicsResource vertexBuffer;
@@ -39,9 +39,9 @@ std::unique_ptr<Scene> Scene::LoadScene(ID3D12Device5* device)
     }
 
     ComPtr<ID3D12CommandAllocator> commandAllocator;
-    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&commandAllocator)));
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator)));
     ComPtr<ID3D12GraphicsCommandList4> commandList;
-    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)));
+    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)));
 
     BottomLevelASMesh mesh;
     mesh.vertexBuffer = { vertexBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
@@ -51,6 +51,12 @@ std::unique_ptr<Scene> Scene::LoadScene(ID3D12Device5* device)
     auto instance = BottomLevelASInstance(blas.get());
     scene->m_tlas = TopLevelAS::Generate({ instance }, commandList.Get(), device);
     scene->m_blas.push_back(std::move(blas));
+
+    // todo: Don't use the swapChain for this, but an independent compute queue.
+    commandList->Close();
+    ID3D12CommandList* commandLists[] = { commandList.Get() };
+    swapChain.GetGraphicsCommandQueue()->ExecuteCommandLists(1, commandLists);
+    swapChain.WaitUntilGraphicsQueueProcessingDone();
 
     return scene;
 }

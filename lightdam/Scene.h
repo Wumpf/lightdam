@@ -7,7 +7,7 @@ class Scene
 {
 public:
     // todo: load from PBR file.
-    static std::unique_ptr<Scene> LoadScene(struct ID3D12Device5* device);
+    static std::unique_ptr<Scene> LoadScene(class SwapChain& swapChain, struct ID3D12Device5* device);
     ~Scene();
 
 private:
