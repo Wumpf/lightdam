@@ -28,6 +28,7 @@
     <ClCompile Include="TopLevelAS.cpp" />
     <ClCompile Include="GraphicsResource.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="RaytracingPipelineGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -69,6 +70,13 @@
     <ClInclude Include="TopLevelAS.h" />
     <ClInclude Include="GraphicsResource.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="..\external\dxcapi.use.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dxc\dxcapi.h">
+      <Filter>external\dxc</Filter>
+    </ClInclude>
+    <ClInclude Include="RaytracingPipelineGenerator.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -82,6 +90,9 @@
     </Filter>
     <Filter Include="shaders">
       <UniqueIdentifier>{0e976001-d8f7-4001-96f0-9f2fbd80ba39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\dxc">
+      <UniqueIdentifier>{b1b3675c-7349-4026-b6ab-a15f57c12d07}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

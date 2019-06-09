@@ -8,14 +8,15 @@ struct IDxcBlob;
 class PathTracer
 {
 public:
-    PathTracer();
+    PathTracer(ID3D12Device5* device);
     ~PathTracer();
 
     void SetScene(class Scene& scene);
 
 private:
     void LoadShaders();
-    void CreateRaytracingPipelineObject();
+    void CreateLocalRootSignatures(ID3D12Device5* device);
+    void CreateRaytracingPipelineObject(ID3D12Device5* device);
     void CreateShaderBindingTable();
 
     ComPtr<ID3D12Resource> m_outputResource[SwapChain::MaxFramesInFlight];
@@ -28,4 +29,6 @@ private:
     ComPtr<ID3D12RootSignature> m_rayGenSignature;
     ComPtr<ID3D12RootSignature> m_hitSignature;
     ComPtr<ID3D12RootSignature> m_missSignature;
+
+    ComPtr<ID3D12StateObject> m_raytracingPipelineObject;
 };

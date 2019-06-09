@@ -100,6 +100,7 @@
     <ClCompile Include="ErrorHandling.cpp" />
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="RaytracingPipelineGenerator.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="SwapChain.cpp" />
@@ -108,6 +109,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\d3dx12.h" />
+    <ClInclude Include="..\external\dxcapi.use.h" />
+    <ClInclude Include="..\external\dxc\dxcapi.h" />
     <ClInclude Include="..\external\imgui\examples\imgui_impl_dx12.h" />
     <ClInclude Include="..\external\imgui\examples\imgui_impl_win32.h" />
     <ClInclude Include="..\external\imgui\imconfig.h" />
@@ -123,6 +126,7 @@
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="ErrorHandling.h" />
     <ClInclude Include="Gui.h" />
+    <ClInclude Include="RaytracingPipelineGenerator.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SwapChain.h" />
