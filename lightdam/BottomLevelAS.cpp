@@ -6,7 +6,7 @@ std::unique_ptr<BottomLevelAS> BottomLevelAS::Generate(const std::vector<BottomL
     for (int i = 0; i < meshes.size(); ++i)
     {
         descs[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        descs[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;//isOpaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+        descs[i].Flags = meshes[i].isOpaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 
         descs[i].Triangles.Transform3x4 = meshes[i].transformBuffer;
         descs[i].Triangles.IndexFormat = meshes[i].indexBuffer ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_UNKNOWN;

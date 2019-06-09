@@ -16,11 +16,7 @@ struct BottomLevelASMesh
 
     D3D12_GPU_VIRTUAL_ADDRESS transformBuffer = 0; // (optional) buffer with 3x4 transform matrix (reuse per-instance constant buffer!)
 
-
-
-    // todo
-    //bool isOpaque;      // If true, the geometry is considered opaque, optimizing the search for a closest hit
-    // index buffer ...
+    bool isOpaque = true;
 };
 
 class BottomLevelAS
