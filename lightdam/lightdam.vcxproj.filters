@@ -100,5 +100,6 @@
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="dxcompiler.dll" />
+    <CopyFileToFolders Include="dxil.dll" />
   </ItemGroup>
 </Project>
