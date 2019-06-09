@@ -15,7 +15,7 @@ public:
     ~GraphicsResource();
 
     GraphicsResource(GraphicsResource&& temp) { *this = std::move(temp); }
-    void operator = (GraphicsResource&& temp) { memcpy(this, &temp, sizeof(GraphicsResource)); temp.m_resource = nullptr; }
+    void operator = (GraphicsResource&& temp);
 
     GraphicsResource(const GraphicsResource&) = delete;
     void operator = (const GraphicsResource&) = delete;

@@ -18,6 +18,13 @@ GraphicsResource::~GraphicsResource()
         m_resource->Release();
 }
 
+void GraphicsResource::operator=(GraphicsResource&& temp)
+{
+    this->~GraphicsResource();
+    memcpy(this, &temp, sizeof(GraphicsResource));
+    temp.m_resource = nullptr;
+}
+
 GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(uint64_t size, bool scratch, ID3D12Device5* device)
 {
     const D3D12_RESOURCE_STATES initState = scratch ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
