@@ -38,7 +38,7 @@ void GraphicsResource::Unmap(uint32_t subresource)
         m_resource->Unmap(subresource, nullptr);
 }
 
-GraphicsResource GraphicsResource::CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)
+GraphicsResource GraphicsResource::CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)
 {
     const D3D12_RESOURCE_STATES initState = scratch ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
     size = Align<uint64_t>(size, scratch ? D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
@@ -73,7 +73,25 @@ GraphicsResource GraphicsResource::CreateUploadHeap(const wchar_t* name, uint64_
     return GraphicsResource(buffer, size);
 }
 
-GraphicsResource GraphicsResource::CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device)
+TextureResource::TextureResource(ID3D12Resource* resource, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels)
+    : GraphicsResource(resource, 0)
+    , m_format(format)
+    , m_width(width)
+    , m_height(height)
+    , m_mipLevels(mipLevels)
+{
+}
+
+void TextureResource::operator = (TextureResource&& temp)
+{
+    GraphicsResource::operator=(std::move(temp));
+    m_format = temp.m_format;
+    m_width = temp.m_width;
+    m_height = temp.m_height;
+    m_mipLevels = temp.m_mipLevels;
+}
+
+TextureResource TextureResource::CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device)
 {
     ID3D12Resource* texture;
     ThrowIfFailed(device->CreateCommittedResource(
@@ -86,7 +104,7 @@ GraphicsResource GraphicsResource::CreateTexture2D(const wchar_t* name, DXGI_FOR
 
     texture->SetName(name);
 
-    return GraphicsResource(texture, width * height * GetBitsPerPixel(format));
+    return TextureResource(texture, format, width, height, mipLevels);
 }
 
 uint32_t GetBitsPerPixel(DXGI_FORMAT fmt)

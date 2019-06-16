@@ -29,14 +29,38 @@ public:
     void* Map(uint32_t subresource = 0);
     void Unmap(uint32_t subresource = 0);
 
-    static GraphicsResource CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device);
+    static GraphicsResource CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device);
     static GraphicsResource CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device);
-    static GraphicsResource CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device);
 
-private:
+
+protected:
     ID3D12Resource* m_resource = nullptr;
     uint64_t m_sizeInBytes = 0;
 };
+
+class TextureResource : public GraphicsResource
+{
+public:
+    TextureResource() = default;
+    TextureResource(ID3D12Resource* resource, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevel);
+
+    TextureResource(TextureResource&& temp) { *this = std::move(temp); }
+    void operator = (TextureResource&& temp);
+
+    static TextureResource CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device);
+
+    DXGI_FORMAT GetFormat() const      { return m_format; }
+    uint32_t    GetWidth() const       { return m_width; }
+    uint32_t    GetHeight() const      { return m_height; }
+    uint32_t    GetMipLevels() const   { return m_mipLevels; }
+
+private:
+    DXGI_FORMAT m_format;
+    uint32_t m_width;
+    uint32_t m_height;
+    uint32_t m_mipLevels;
+};
+
 
 class ScopedResourceMap
 {

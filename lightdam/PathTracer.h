@@ -3,6 +3,7 @@
 #include "SwapChain.h"
 #include "Shader.h"
 #include "GraphicsResource.h"
+#include "RaytracingShaderBindingTable.h"
 
 struct IDxcBlob;
 class Scene;
@@ -15,6 +16,9 @@ public:
 
     void SetScene(Scene& scene, ID3D12Device5* device);
 
+    void DrawIteration(ID3D12GraphicsCommandList4* commandList, GraphicsResource& renderTarget);
+
+
     // todo: resize
 
 private:
@@ -25,7 +29,7 @@ private:
     void CreateDescriptorHeap(ID3D12Device5* device);
     void CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
 
-    GraphicsResource m_outputResource;
+    TextureResource m_outputResource;
     ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
 
     Shader m_rayGenLibrary;
@@ -39,7 +43,7 @@ private:
     ComPtr<ID3D12StateObject> m_raytracingPipelineObject;
     ComPtr<ID3D12StateObjectProperties> m_raytracingPipelineObjectProperties;
 
-    GraphicsResource m_shaderBindingTable;
+    RaytracingShaderBindingTable m_shaderBindingTable;
 
     const uint32_t m_descriptorHeapIncrementSize;
 };

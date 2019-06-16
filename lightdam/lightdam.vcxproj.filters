@@ -29,6 +29,7 @@
     <ClCompile Include="GraphicsResource.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="RaytracingPipelineGenerator.cpp" />
+    <ClCompile Include="RaytracingShaderBindingTable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -77,6 +78,7 @@
       <Filter>external\dxc</Filter>
     </ClInclude>
     <ClInclude Include="RaytracingPipelineGenerator.h" />
+    <ClInclude Include="RaytracingShaderBindingTable.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -96,21 +98,11 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\Common.hlsl">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\Hit.hlsl">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\Miss.hlsl">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shaders\RayGen.hlsl">
-      <Filter>shaders</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <CopyFileToFolders Include="dxcompiler.dll" />
     <CopyFileToFolders Include="dxil.dll" />
+    <CopyFileToFolders Include="shaders\Common.hlsl" />
+    <CopyFileToFolders Include="shaders\Hit.hlsl" />
+    <CopyFileToFolders Include="shaders\Miss.hlsl" />
+    <CopyFileToFolders Include="shaders\RayGen.hlsl" />
   </ItemGroup>
 </Project>

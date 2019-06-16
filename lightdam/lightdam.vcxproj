@@ -103,6 +103,7 @@
     <ClCompile Include="RaytracingPipelineGenerator.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="RaytracingShaderBindingTable.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="TopLevelAS.cpp" />
     <ClCompile Include="Window.cpp" />
@@ -129,6 +130,7 @@
     <ClInclude Include="RaytracingPipelineGenerator.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="RaytracingShaderBindingTable.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="TopLevelAS.h" />
     <ClInclude Include="Window.h" />

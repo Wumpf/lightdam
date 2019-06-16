@@ -41,76 +41,41 @@ void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
     device->CreateShaderResourceView(nullptr, &srvDesc, descriptorHandle);
 }
 
-class BindingTableGenerator
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, GraphicsResource& renderTarget)
 {
-public:
-    GraphicsResource Generate(ID3D12StateObjectProperties* raytracingPipelineProperties, ID3D12Device5* device)
-    {
-        // All entries are made up of an shader identifier and parameters each with 8 bytes.
-        // And all need to have the same fixed size!
-        const size_t recordSize = Align<size_t>(D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + 8 * m_maxNumParameters, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-        const size_t bufferSize = recordSize * (m_rayGenEntries.size() + m_missEntries.size() + m_hitGroupEntries.size());
+    ID3D12DescriptorHeap* heaps[] = { m_rayGenDescriptorHeap.Get() };
+    commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
-        GraphicsResource table = GraphicsResource::CreateUploadHeap(L"shader binding table", bufferSize, device);
-        auto tableData = ScopedResourceMap(table);
-        auto currentRecord = (uint8_t*)tableData.Get();
-        CopyData(m_rayGenEntries, raytracingPipelineProperties, recordSize, currentRecord);
-        CopyData(m_missEntries, raytracingPipelineProperties, recordSize, currentRecord);
-        CopyData(m_hitGroupEntries, raytracingPipelineProperties, recordSize, currentRecord);
-        assert(currentRecord == (uint8_t*)tableData.Get() + bufferSize);
+    // Transition output buffer from copy to unordered access - assumes we copied previously.
+    CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    commandList->ResourceBarrier(1, &transition);
 
-        return table;
-    }
+    // Setup raytracing task
+    commandList->SetPipelineState1(m_raytracingPipelineObject.Get());
+    m_shaderBindingTable.DispatchRays(commandList, m_outputResource.GetWidth(), m_outputResource.GetHeight());
 
-    void AddRayGenProgram(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)   { AddEntry(m_rayGenEntries, entryPoint, inputData); }
-    void AddMissProgram(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)     { AddEntry(m_missEntries, entryPoint, inputData); }
-    void AddHitGroup(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)        { AddEntry(m_hitGroupEntries, entryPoint, inputData); }
+    // Copy raytracing output buffer to backbuffer.
+    transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    commandList->ResourceBarrier(1, &transition);
+    transition = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
+    commandList->ResourceBarrier(1, &transition);
+    commandList->CopyResource(renderTarget.Get(), m_outputResource.Get());
 
-private:
-    struct Entry
-    {
-        const std::wstring programEntryPoint;
-        const std::vector<uint64_t> inputData;
-    };
-
-    static void CopyData(const std::vector<Entry>& entries, ID3D12StateObjectProperties* raytracingPipelineProperties, size_t recordSize, uint8_t*& destRecords)
-    {
-        for (const auto& entry : entries)
-        {
-            void* id = raytracingPipelineProperties->GetShaderIdentifier(entry.programEntryPoint.c_str());
-            if (!id)
-            {
-                std::wstring errMsg(std::wstring(L"Unknown shader identifier used in the SBT: ") + entry.programEntryPoint);
-                throw errMsg;// std::logic_error(std::string(errMsg.begin(), errMsg.end())); // TODO
-            }
-            memcpy(destRecords, id, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
-            memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, entry.inputData.data(), entry.inputData.size() * 8);
-            destRecords += recordSize;
-        }
-    }
-
-    void AddEntry(std::vector<Entry>& entryList, const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)
-    {
-        entryList.push_back(Entry{ entryPoint, inputData });
-        m_maxNumParameters = std::max(m_maxNumParameters, inputData.size());
-    }
-
-    size_t m_maxNumParameters = 0;
-    std::vector<Entry> m_rayGenEntries;
-    std::vector<Entry> m_missEntries;
-    std::vector<Entry> m_hitGroupEntries;
-};
+    // Go back to render target state.
+    transition = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    commandList->ResourceBarrier(1, &transition);
+}
 
 void PathTracer::CreateShaderBindingTable(Scene& scene, ID3D12Device5* device)
 {
-    BindingTableGenerator bindingTableGenerator;
+    RaytracingBindingTableGenerator bindingTableGenerator;
 
     D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_rayGenDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
     auto heapPointer = reinterpret_cast<uint64_t*>(srvUavHeapHandle.ptr);
-    bindingTableGenerator.AddRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
+    bindingTableGenerator.SetRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
     bindingTableGenerator.AddMissProgram(L"Miss", {});
     for (const auto& mesh : scene.GetMeshes())
-        bindingTableGenerator.AddHitGroup(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress() });
+        bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress() });
 
     m_shaderBindingTable = bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), device);
 }
@@ -126,7 +91,7 @@ void PathTracer::CreateDescriptorHeap(ID3D12Device5* device)
 
 void PathTracer::CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
 {
-    m_outputResource = GraphicsResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, device);
+    m_outputResource = TextureResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, device);
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
