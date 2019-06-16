@@ -42,6 +42,9 @@ Code altered by Andreas Reich:
 #include <string>
 #include <vector>
 
+#include <wrl/client.h>
+using namespace Microsoft::WRL;
+
 /// Helper class to create raytracing pipelines
 class RayTracingPipelineGenerator
 {
@@ -158,6 +161,6 @@ private:
   UINT m_maxRecursionDepth = 1;
 
   ID3D12Device5* m_device;
-  ID3D12RootSignature* m_dummyLocalRootSignature;
-  ID3D12RootSignature* m_dummyGlobalRootSignature;
+  ComPtr<ID3D12RootSignature> m_dummyLocalRootSignature;
+  ComPtr<ID3D12RootSignature> m_dummyGlobalRootSignature;
 };

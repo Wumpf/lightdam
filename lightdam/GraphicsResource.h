@@ -15,7 +15,7 @@ class GraphicsResource
 public:
     GraphicsResource() = default;
     GraphicsResource(ID3D12Resource* resource, uint64_t size);
-    ~GraphicsResource();
+    virtual ~GraphicsResource();
 
     GraphicsResource(GraphicsResource&& temp) { *this = std::move(temp); }
     void operator = (GraphicsResource&& temp);
@@ -31,7 +31,6 @@ public:
 
     static GraphicsResource CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device);
     static GraphicsResource CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device);
-
 
 protected:
     ID3D12Resource* m_resource = nullptr;

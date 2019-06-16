@@ -162,5 +162,7 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
     pipeline.SetMaxRecursionDepth(1);
 
     m_raytracingPipelineObject = pipeline.Generate();
+    auto numReferencesLeft = m_raytracingPipelineObject->Release();
+    assert(numReferencesLeft == 1);
     ThrowIfFailed(m_raytracingPipelineObject->QueryInterface(IID_PPV_ARGS(&m_raytracingPipelineObjectProperties)));
 }
