@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <d3d12.h>
 
 struct ID3D12Device5;
 struct ID3D12Resource;
@@ -30,10 +31,11 @@ public:
 
     static GraphicsResource CreateBufferForAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device);
     static GraphicsResource CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device);
+    static GraphicsResource CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device);
 
 private:
     ID3D12Resource* m_resource = nullptr;
-    uint64_t m_size = 0;
+    uint64_t m_sizeInBytes = 0;
 };
 
 class ScopedResourceMap
@@ -64,3 +66,5 @@ private:
     uint32_t m_subresource;
     void* m_data;
 };
+
+uint32_t GetBitsPerPixel(DXGI_FORMAT fmt);

@@ -10,19 +10,22 @@ class Scene;
 class PathTracer
 {
 public:
-    PathTracer(ID3D12Device5* device);
+    PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
     ~PathTracer();
 
     void SetScene(Scene& scene, ID3D12Device5* device);
+
+    // todo: resize
 
 private:
     void LoadShaders();
     void CreateLocalRootSignatures(ID3D12Device5* device);
     void CreateRaytracingPipelineObject(ID3D12Device5* device);
     void CreateShaderBindingTable(Scene& scene, ID3D12Device5* device);
-    void CreateSceneIndependentShaderResources(ID3D12Device5* device);
+    void CreateDescriptorHeap(ID3D12Device5* device);
+    void CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
 
-    ComPtr<ID3D12Resource> m_outputResource[SwapChain::MaxFramesInFlight];
+    GraphicsResource m_outputResource;
     ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
 
     Shader m_rayGenLibrary;
@@ -37,4 +40,6 @@ private:
     ComPtr<ID3D12StateObjectProperties> m_raytracingPipelineObjectProperties;
 
     GraphicsResource m_shaderBindingTable;
+
+    const uint32_t m_descriptorHeapIncrementSize;
 };

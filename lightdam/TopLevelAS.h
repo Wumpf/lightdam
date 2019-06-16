@@ -20,6 +20,8 @@ class TopLevelAS
 public:
     static std::unique_ptr<TopLevelAS> Generate(const std::vector<BottomLevelASInstance>& blasInstances, struct ID3D12GraphicsCommandList4* commandList, struct ID3D12Device5* device);
 
+    D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
+
 private:
     TopLevelAS() = default;
 

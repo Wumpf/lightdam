@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "Scene.h"
+#include "TopLevelAS.h"
 #include "GraphicsResource.h"
 #include "ErrorHandling.h"
 #include "RaytracingPipelineGenerator.h"
@@ -13,12 +14,14 @@
 
 #include "../external/d3dx12.h"
 
-PathTracer::PathTracer(ID3D12Device5* device)
+PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
+    : m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
 {
     CreateLocalRootSignatures(device);
     LoadShaders();
     CreateRaytracingPipelineObject(device);
-    CreateSceneIndependentShaderResources(device);
+    CreateDescriptorHeap(device);
+    CreateOutputBuffer(device, outputWidth, outputHeight);
 }
 
 PathTracer::~PathTracer()
@@ -28,6 +31,14 @@ PathTracer::~PathTracer()
 void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
 {
     CreateShaderBindingTable(scene, device);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize);
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
+    device->CreateShaderResourceView(nullptr, &srvDesc, descriptorHandle);
 }
 
 class BindingTableGenerator
@@ -94,7 +105,7 @@ void PathTracer::CreateShaderBindingTable(Scene& scene, ID3D12Device5* device)
 {
     BindingTableGenerator bindingTableGenerator;
 
-    D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
+    D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_rayGenDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
     auto heapPointer = reinterpret_cast<uint64_t*>(srvUavHeapHandle.ptr);
     bindingTableGenerator.AddRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
     bindingTableGenerator.AddMissProgram(L"Miss", {});
@@ -104,11 +115,23 @@ void PathTracer::CreateShaderBindingTable(Scene& scene, ID3D12Device5* device)
     m_shaderBindingTable = bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), device);
 }
 
-void PathTracer::CreateSceneIndependentShaderResources(ID3D12Device5* device)
+void PathTracer::CreateDescriptorHeap(ID3D12Device5* device)
 {
-    // TODO
-//    ComPtr<ID3D12Resource> m_outputResource[SwapChain::MaxFramesInFlight];
-//    ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
+    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
+    descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    descriptorHeapDesc.NumDescriptors = 2;
+    ThrowIfFailed(device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_rayGenDescriptorHeap)));
+}
+
+void PathTracer::CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
+{
+    m_outputResource = GraphicsResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, device);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, descriptorHandle);
 }
 
 void PathTracer::LoadShaders()

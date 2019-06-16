@@ -25,7 +25,9 @@ Application::Application(int argc, char** argv)
     m_gui.reset(new Gui(m_window.get(), m_device.Get()));
     m_scene = Scene::LoadScene(*m_swapChain, m_device.Get());
 
-    m_pathTracer.reset(new PathTracer(m_device.Get()));
+    unsigned int windowWidth, windowHeight;
+    m_window->GetSize(windowWidth, windowHeight);
+    m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
     m_pathTracer->SetScene(*m_scene, m_device.Get());
 }
 

@@ -61,3 +61,8 @@ std::unique_ptr<TopLevelAS> TopLevelAS::Generate(const std::vector<BottomLevelAS
 
     return tlas;
 }
+
+D3D12_GPU_VIRTUAL_ADDRESS TopLevelAS::GetGPUAddress() const
+{
+    return m_tlas->GetGPUVirtualAddress();
+}
