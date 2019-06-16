@@ -53,7 +53,11 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     ThrowIfFailed(swapChain.As(&m_swapChain));
 
     for (UINT n = 0; n < BufferCount; n++)
-        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_backbuffers[n])));
+    {
+        ID3D12Resource* backbuffer;
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&backbuffer)));
+        m_backbuffers[n] = TextureResource(backbuffer, swapChainDesc.Format, swapChainDesc.Width, swapChainDesc.Height, 1);
+    }
 
     m_swapChain->SetMaximumFrameLatency(MaxFramesInFlight);
 

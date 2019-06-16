@@ -2,6 +2,7 @@
 
 #include <wrl/client.h>
 #include <d3d12.h>
+#include "GraphicsResource.h"
 
 using namespace Microsoft::WRL;
 
@@ -11,8 +12,8 @@ public:
     SwapChain(const class Window& window, struct IDXGIFactory4* factory, struct ID3D12Device* device);
     ~SwapChain();
 
-    unsigned int GetCurrentFrameIndex() const { return m_frameIndex; }
-    ID3D12Resource* GetCurrentRenderTarget() const  { return m_backbuffers[m_bufferIndex].Get(); }
+    unsigned int GetCurrentFrameIndex() const               { return m_frameIndex; }
+    const TextureResource& GetCurrentRenderTarget() const   { return m_backbuffers[m_bufferIndex]; }
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveBackbufferDescriptorHandle() const;
 
     ID3D12CommandQueue* GetGraphicsCommandQueue() const  { return m_graphicsCommandQueue.Get(); }
@@ -40,7 +41,7 @@ private:
 
     ComPtr<ID3D12CommandQueue>      m_graphicsCommandQueue;
     ComPtr<struct IDXGISwapChain3>  m_swapChain;
-    ComPtr<ID3D12Resource>          m_backbuffers[BufferCount];
+    TextureResource                 m_backbuffers[BufferCount];
     ComPtr<ID3D12DescriptorHeap>    m_backbufferDescripterHeap;
     unsigned int                    m_rtvDescriptorSize;
 

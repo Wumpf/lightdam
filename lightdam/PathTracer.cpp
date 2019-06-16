@@ -41,7 +41,7 @@ void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
     device->CreateShaderResourceView(nullptr, &srvDesc, descriptorHandle);
 }
 
-void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, GraphicsResource& renderTarget)
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget)
 {
     ID3D12DescriptorHeap* heaps[] = { m_rayGenDescriptorHeap.Get() };
     commandList->SetDescriptorHeaps(_countof(heaps), heaps);

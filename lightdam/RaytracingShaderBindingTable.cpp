@@ -2,34 +2,13 @@
 #include "MathUtils.h"
 #include <algorithm>
 
-
-RaytracingShaderBindingTable::RaytracingShaderBindingTable(GraphicsResource&& resource, uint32_t rayGenProgramEntrySize, Subtable subtableMiss, Subtable subtableHitGroups)
-    : GraphicsResource(std::move(resource))
-    , m_rayGenProgramEntrySize(rayGenProgramEntrySize)
-    , m_subtableMiss(subtableMiss)
-    , m_subtableHitGroups(subtableHitGroups)
-{
-}
-
 void RaytracingShaderBindingTable::DispatchRays(ID3D12GraphicsCommandList4* commandList, uint32_t width, uint32_t height, uint32_t depth)
 {
-    auto gpuAddress = Get()->GetGPUVirtualAddress();
-
     D3D12_DISPATCH_RAYS_DESC desc = {};
 
-    desc.RayGenerationShaderRecord.StartAddress = gpuAddress;
-    desc.RayGenerationShaderRecord.SizeInBytes = m_rayGenProgramEntrySize;
-    gpuAddress += m_rayGenProgramEntrySize;
-
-    desc.MissShaderTable.StartAddress = gpuAddress;
-    desc.MissShaderTable.SizeInBytes = m_subtableMiss.totalSize;
-    desc.MissShaderTable.StrideInBytes = m_subtableMiss.stride;
-    gpuAddress += m_subtableMiss.totalSize;
-
-    desc.HitGroupTable.StartAddress = gpuAddress;
-    desc.HitGroupTable.SizeInBytes = m_subtableHitGroups.totalSize;
-    desc.HitGroupTable.StrideInBytes = m_subtableHitGroups.stride;
-    gpuAddress += m_subtableHitGroups.totalSize;
+    desc.RayGenerationShaderRecord = m_rayGenerationShaderRecord;
+    desc.MissShaderTable = m_missShaderTable;
+    desc.HitGroupTable = m_hitGroupTable;
 
     desc.Width = width;
     desc.Height = height;
@@ -40,34 +19,50 @@ void RaytracingShaderBindingTable::DispatchRays(ID3D12GraphicsCommandList4* comm
 
 RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12StateObjectProperties* raytracingPipelineProperties, ID3D12Device5* device)
 {
-    auto rayGenProgramEntrySize = m_rayGenProgramEntry.GetSize();
-    auto subtableMissSize = m_subtableMissEntries.ComputeTableSize();
-    auto subtableHitGroupsSize = m_subtableHitGroupEntries.ComputeTableSize();
+    RaytracingShaderBindingTable table;
 
-    uint32_t bufferSize = rayGenProgramEntrySize + subtableMissSize.totalSize + subtableHitGroupsSize.totalSize;
+    // Startaddresses of subtables must be D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT
+    // For simplicity we just round up on the subtable sizes which is pretty much only a conceptual difference.
 
-    GraphicsResource table = GraphicsResource::CreateUploadHeap(L"shader binding table", bufferSize, device);
+    table.m_rayGenerationShaderRecord.SizeInBytes = Align<uint64_t>(m_rayGenProgramEntry.GetSize(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);  m_rayGenProgramEntry.GetSize();
 
-    auto tableData = ScopedResourceMap(table);
-    auto currentRecord = (uint8_t*)tableData.Get();
+    table.m_missShaderTable.StrideInBytes = Entry::GetSize(m_subtableMissEntries.maxNumParameters);
+    table.m_missShaderTable.SizeInBytes = Align<uint64_t>(table.m_missShaderTable.StrideInBytes * m_subtableMissEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
-    m_rayGenProgramEntry.CopyData(raytracingPipelineProperties, currentRecord);
-    currentRecord += rayGenProgramEntrySize;
+    table.m_hitGroupTable.StrideInBytes = Entry::GetSize(m_subtableHitGroupEntries.maxNumParameters);
+    table.m_hitGroupTable.SizeInBytes = Align<uint64_t>(table.m_hitGroupTable.StrideInBytes * m_subtableHitGroupEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
-    for (const auto& entry : m_subtableMissEntries.entries)
+    const auto bufferSize = table.m_rayGenerationShaderRecord.SizeInBytes + table.m_missShaderTable.SizeInBytes + table.m_hitGroupTable.SizeInBytes;
+    table.m_table = GraphicsResource::CreateUploadHeap(L"shader binding table", bufferSize, device);
+
+    // Copy data to table.
     {
-        entry.CopyData(raytracingPipelineProperties, currentRecord);
-        currentRecord += subtableMissSize.stride;
-    }
-    for (const auto& entry : m_subtableHitGroupEntries.entries)
-    {
-        entry.CopyData(raytracingPipelineProperties, currentRecord);
-        currentRecord += subtableHitGroupsSize.stride;
+        auto tableData = ScopedResourceMap(table.m_table);
+        auto currentRecord = (uint8_t*)tableData.Get();
+
+        m_rayGenProgramEntry.CopyData(raytracingPipelineProperties, currentRecord);
+        currentRecord += table.m_rayGenerationShaderRecord.SizeInBytes;
+
+        for (const auto& entry : m_subtableMissEntries.entries)
+        {
+            entry.CopyData(raytracingPipelineProperties, currentRecord);
+            currentRecord += table.m_missShaderTable.SizeInBytes;
+        }
+        for (const auto& entry : m_subtableHitGroupEntries.entries)
+        {
+            entry.CopyData(raytracingPipelineProperties, currentRecord);
+            currentRecord += table.m_hitGroupTable.SizeInBytes;
+        }
+
+        assert(currentRecord == (uint8_t*)tableData.Get() + bufferSize);
     }
 
-    assert(currentRecord == (uint8_t*)tableData.Get() + bufferSize);
+    // Fill out gpu addresses.
+    table.m_rayGenerationShaderRecord.StartAddress = table.m_table->GetGPUVirtualAddress();
+    table.m_missShaderTable.StartAddress = table.m_rayGenerationShaderRecord.StartAddress + table.m_rayGenerationShaderRecord.SizeInBytes;
+    table.m_hitGroupTable.StartAddress = table.m_missShaderTable.StartAddress + table.m_missShaderTable.SizeInBytes;
 
-    return RaytracingShaderBindingTable(std::move(table), rayGenProgramEntrySize, subtableMissSize, subtableHitGroupsSize);
+    return table;
 }
 
 void RaytracingBindingTableGenerator::Group::AddEntry(const std::wstring & entryPoint, const std::vector<uint64_t>& inputData)
@@ -76,9 +71,9 @@ void RaytracingBindingTableGenerator::Group::AddEntry(const std::wstring & entry
     maxNumParameters = std::max(maxNumParameters, inputData.size());
 }
 
-uint32_t RaytracingBindingTableGenerator::Entry::GetSize(size_t numParameters)
+uint64_t RaytracingBindingTableGenerator::Entry::GetSize(size_t numParameters)
 {
-    return Align<uint32_t>(D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + 8 * (uint32_t)numParameters, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
+    return Align<uint64_t>(D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + 8 * (uint64_t)numParameters, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
 }
 
 void RaytracingBindingTableGenerator::Entry::CopyData(ID3D12StateObjectProperties* raytracingPipelineProperties, uint8_t* destRecords) const
@@ -91,16 +86,4 @@ void RaytracingBindingTableGenerator::Entry::CopyData(ID3D12StateObjectPropertie
     }
     memcpy(destRecords, id, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
     memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, inputData.data(), inputData.size() * 8);
-}
-
-RaytracingShaderBindingTable::Subtable RaytracingBindingTableGenerator::Group::ComputeTableSize()
-{
-    RaytracingShaderBindingTable::Subtable subtable;
-
-    // All entries are made up of an shader identifier and parameters each with 8 bytes.
-    // And all need to have the same fixed size!
-    subtable.stride = Entry::GetSize(maxNumParameters);
-    subtable.totalSize = (uint32_t)(subtable.stride * entries.size());
-
-    return subtable;
 }

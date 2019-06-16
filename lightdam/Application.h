@@ -29,7 +29,7 @@ private:
     std::unique_ptr<class PathTracer> m_pathTracer;
 
     ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
-    ComPtr<struct ID3D12GraphicsCommandList> m_commandList;
+    ComPtr<struct ID3D12GraphicsCommandList4> m_commandList;
 
     ComPtr<struct ID3D12Device5>             m_device;
 };
