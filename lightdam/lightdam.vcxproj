@@ -100,7 +100,6 @@
     <ClCompile Include="ErrorHandling.cpp" />
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="RaytracingPipelineGenerator.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="RaytracingShaderBindingTable.cpp" />
@@ -127,7 +126,6 @@
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="ErrorHandling.h" />
     <ClInclude Include="Gui.h" />
-    <ClInclude Include="RaytracingPipelineGenerator.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="RaytracingShaderBindingTable.h" />

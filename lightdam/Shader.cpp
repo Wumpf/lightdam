@@ -86,3 +86,12 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
     ThrowIfFailed(result->GetResult(&shader.m_shaderBlob));
     return shader;
 }
+
+D3D12_SHADER_BYTECODE Shader::GetByteCode() const
+{
+    return D3D12_SHADER_BYTECODE
+    {
+        m_shaderBlob->GetBufferPointer(),
+        m_shaderBlob->GetBufferSize()
+    };
+}

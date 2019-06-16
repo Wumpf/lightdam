@@ -9,7 +9,6 @@
 #include "TopLevelAS.h"
 #include "GraphicsResource.h"
 #include "ErrorHandling.h"
-#include "RaytracingPipelineGenerator.h"
 #include "MathUtils.h"
 
 #include "../external/d3dx12.h"
@@ -144,25 +143,68 @@ void PathTracer::CreateLocalRootSignatures(ID3D12Device5* device)
 
 void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
 {
-    // TODO: Use CD3DX12_STATE_OBJECT_DESC instead and remove Nvidia's RayTracingPipelineGenerator
-    RayTracingPipelineGenerator pipeline(device);
+    CD3DX12_STATE_OBJECT_DESC stateObjectDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
-    pipeline.AddLibrary(m_rayGenLibrary.GetBlob(), { L"RayGen" });
-    pipeline.AddLibrary(m_missLibrary.GetBlob(), { L"Miss" });
-    pipeline.AddLibrary(m_hitLibrary.GetBlob(), { L"ClosestHit" });
+    // Used libraries.
+    {
+        auto rayGenLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+        rayGenLib->SetDXILLibrary(&m_rayGenLibrary.GetByteCode());
+        rayGenLib->DefineExport(L"RayGen");
 
-    pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+        auto missLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+        missLib->SetDXILLibrary(&m_missLibrary.GetByteCode());
+        missLib->DefineExport(L"Miss");
 
-    pipeline.AddRootSignatureAssociation(m_rayGenSignature.Get(), { L"RayGen" });
-    pipeline.AddRootSignatureAssociation(m_missSignature.Get(), { L"Miss" });
-    pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), { L"HitGroup" });
+        auto closestHitLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+        closestHitLib->SetDXILLibrary(&m_hitLibrary.GetByteCode());
+        closestHitLib->DefineExport(L"ClosestHit");
+    }
+    // Shader config
+    {
+        auto config = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+        config->Config(4 * sizeof(float),  // RGB + distance
+                       2 * sizeof(float)); // barycentric coordinates
+    }
+    // Pipeline config.
+    {
+        auto config = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+        config->Config(1);
+    }
+    // Hit groups to export association.
+    {
+        auto hitGroup = stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+        hitGroup->SetHitGroupExport(L"HitGroup");
+        hitGroup->SetClosestHitShaderImport(L"ClosestHit");
+        hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
+    }
 
-    pipeline.SetMaxPayloadSize(4 * sizeof(float)); // RGB + distance
-    pipeline.SetMaxAttributeSize(2 * sizeof(float)); // barycentric coordinates
-    pipeline.SetMaxRecursionDepth(1);
+    // Local root signatures & association to hitgroup/type
+    {
+        {
+            auto localRootSignature_rayGen = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+            localRootSignature_rayGen->SetRootSignature(m_rayGenSignature.Get());
+            auto localRootSignatureAssociation_rayGen = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            localRootSignatureAssociation_rayGen->SetSubobjectToAssociate(*localRootSignature_rayGen);
+            localRootSignatureAssociation_rayGen->AddExport(L"RayGen");
+        }
 
-    m_raytracingPipelineObject = pipeline.Generate();
-    auto numReferencesLeft = m_raytracingPipelineObject->Release();
-    assert(numReferencesLeft == 1);
+        {
+            auto localRootSignature_miss = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+            localRootSignature_miss->SetRootSignature(m_missSignature.Get());
+            auto localRootSignatureAssociation_miss = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            localRootSignatureAssociation_miss->SetSubobjectToAssociate(*localRootSignature_miss);
+            localRootSignatureAssociation_miss->AddExport(L"Miss");
+        }
+
+        {
+            auto localRootSignature_hit = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+            localRootSignature_hit->SetRootSignature(m_hitSignature.Get());
+            auto localRootSignatureAssociation_hit= stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            localRootSignatureAssociation_hit->SetSubobjectToAssociate(*localRootSignature_hit);
+            localRootSignatureAssociation_hit->AddExport(L"HitGroup");
+        }
+    }
+
+    ThrowIfFailed(device->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&m_raytracingPipelineObject)));
     ThrowIfFailed(m_raytracingPipelineObject->QueryInterface(IID_PPV_ARGS(&m_raytracingPipelineObjectProperties)));
 }
