@@ -14,3 +14,13 @@ struct Attributes
 {
   float2 bary;
 };
+
+
+// Global constant buffer
+cbuffer GlobalConstants : register(b0)
+{
+    float3 CameraU;
+    float3 CameraV;
+    float3 CameraW;
+    float3 CameraPosition;
+};

@@ -41,6 +41,10 @@
     <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp">
       <Filter>dx12</Filter>
     </ClCompile>
+    <ClCompile Include="dx12\DynamicConstantBuffer.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -101,6 +105,10 @@
     <ClInclude Include="dx12\GraphicsResource.h">
       <Filter>dx12</Filter>
     </ClInclude>
+    <ClInclude Include="dx12\DynamicConstantBuffer.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -125,7 +133,6 @@
   <ItemGroup>
     <CopyFileToFolders Include="dxcompiler.dll" />
     <CopyFileToFolders Include="dxil.dll" />
-    <CopyFileToFolders Include="shaders\Common.hlsl" />
     <CopyFileToFolders Include="shaders\Hit.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
@@ -133,6 +140,9 @@
       <Filter>shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="shaders\Miss.hlsl">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="shaders\Common.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
   </ItemGroup>

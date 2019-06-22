@@ -5,18 +5,31 @@
 #include <stdexcept>
 #include <algorithm>
 
+#include <DirectXMath.h>
+
 #include "Scene.h"
 #include "dx12/TopLevelAS.h"
 #include "dx12/GraphicsResource.h"
 #include "ErrorHandling.h"
 #include "MathUtils.h"
+#include "Camera.h"
 
 #include "../external/d3dx12.h"
 
+
+struct GlobalConstants
+{
+    DirectX::XMVECTOR CameraU;
+    DirectX::XMVECTOR CameraV;
+    DirectX::XMVECTOR CameraW;
+    DirectX::XMVECTOR CameraPosition;
+};
+
 PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
     : m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
+    , m_frameConstantBuffer(L"FrameConstants", device, sizeof(GlobalConstants))
 {
-    CreateLocalRootSignatures(device);
+    CreateRootSignatures(device);
     LoadShaders();
     CreateRaytracingPipelineObject(device);
     CreateDescriptorHeap(device);
@@ -32,18 +45,30 @@ void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
     CreateShaderBindingTable(scene, device);
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize);
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
-    device->CreateShaderResourceView(nullptr, &srvDesc, descriptorHandle);
+    D3D12_SHADER_RESOURCE_VIEW_DESC tlasView = {};
+    tlasView.Format = DXGI_FORMAT_UNKNOWN;
+    tlasView.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    tlasView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    tlasView.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
+    device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
 }
 
-void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget)
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, int frameIndex)
 {
+    // todo: Read active camera from scene.
+    auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
+    Camera camera;
+    camera.SetLookAt(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
+    camera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
+    camera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    camera.ComputeCameraParams(globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
+    globalConstants->CameraPosition = camera.GetPosition();
+
+    // Setup global resources.
     ID3D12DescriptorHeap* heaps[] = { m_rayGenDescriptorHeap.Get() };
     commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+    commandList->SetComputeRootSignature(m_globalRootSignature.Get());
+    commandList->SetComputeRootConstantBufferView(0, m_frameConstantBuffer.GetGPUAddress(frameIndex));
 
     // Transition output buffer from copy to unordered access - assumes we copied previously.
     CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -105,7 +130,7 @@ void PathTracer::LoadShaders()
     m_hitLibrary = Shader::CompileFromFile(L"Hit.hlsl");
 }
 
-static ComPtr<ID3D12RootSignature> CreateRootSignature(const CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC& desc, const wchar_t* name, ID3D12Device5* device)
+static ComPtr<ID3D12RootSignature> CreateRootSignature(const wchar_t* name, ID3D12Device5* device, const CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC& desc)
 {
     ComPtr<ID3DBlob> sigBlob;
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &sigBlob, nullptr));
@@ -115,8 +140,15 @@ static ComPtr<ID3D12RootSignature> CreateRootSignature(const CD3DX12_VERSIONED_R
     return signature;
 }
 
-void PathTracer::CreateLocalRootSignatures(ID3D12Device5* device)
+void PathTracer::CreateRootSignatures(ID3D12Device5* device)
 {
+    // Global root signature
+    {
+        CD3DX12_ROOT_PARAMETER1 params[1] = {};
+        params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params);
+        m_globalRootSignature = CreateRootSignature(L"PathTracerGlobalRootSig", device, rootSignatureDesc);
+    }
     // RayGen local root signature
     {
         CD3DX12_DESCRIPTOR_RANGE1 descriptorRanges[] =
@@ -126,18 +158,18 @@ void PathTracer::CreateLocalRootSignatures(ID3D12Device5* device)
         };
         CD3DX12_ROOT_PARAMETER1 param; param.InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(1, &param, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_rayGenSignature = CreateRootSignature(rootSignatureDesc, L"RayGen", device);
+        m_rayGenSignature = CreateRootSignature(L"RayGen", device, rootSignatureDesc);
     }
     // Miss local root signature
     {
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(0, (D3D12_ROOT_PARAMETER1*)nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_missSignature = CreateRootSignature(rootSignatureDesc, L"Miss", device);
+        m_missSignature = CreateRootSignature(L"Miss", device, rootSignatureDesc);
     }
     // Hit local root signature.
     {
         CD3DX12_ROOT_PARAMETER1 param; param.InitAsShaderResourceView(0); // Vertex buffer in t0
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(1, &param, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_hitSignature = CreateRootSignature(rootSignatureDesc, L"Hit", device);
+        m_hitSignature = CreateRootSignature(L"Hit", device, rootSignatureDesc);
     }
 }
 
@@ -187,7 +219,6 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
             localRootSignatureAssociation_rayGen->SetSubobjectToAssociate(*localRootSignature_rayGen);
             localRootSignatureAssociation_rayGen->AddExport(L"RayGen");
         }
-
         {
             auto localRootSignature_miss = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
             localRootSignature_miss->SetRootSignature(m_missSignature.Get());
@@ -195,7 +226,6 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
             localRootSignatureAssociation_miss->SetSubobjectToAssociate(*localRootSignature_miss);
             localRootSignatureAssociation_miss->AddExport(L"Miss");
         }
-
         {
             auto localRootSignature_hit = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
             localRootSignature_hit->SetRootSignature(m_hitSignature.Get());
@@ -203,6 +233,12 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
             localRootSignatureAssociation_hit->SetSubobjectToAssociate(*localRootSignature_hit);
             localRootSignatureAssociation_hit->AddExport(L"HitGroup");
         }
+    }
+
+    // Global root signature
+    {
+        auto globalRootSignature = stateObjectDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+        globalRootSignature->SetRootSignature(m_globalRootSignature.Get());
     }
 
     ThrowIfFailed(device->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&m_raytracingPipelineObject)));

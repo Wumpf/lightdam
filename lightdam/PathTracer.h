@@ -3,6 +3,7 @@
 #include "dx12/SwapChain.h"
 #include "dx12/Shader.h"
 #include "dx12/GraphicsResource.h"
+#include "dx12/DynamicConstantBuffer.h"
 #include "dx12/RaytracingShaderBindingTable.h"
 
 struct IDxcBlob;
@@ -16,14 +17,14 @@ public:
 
     void SetScene(Scene& scene, ID3D12Device5* device);
 
-    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget);
+    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, int frameIndex);
 
 
     // todo: resize
 
 private:
     void LoadShaders();
-    void CreateLocalRootSignatures(ID3D12Device5* device);
+    void CreateRootSignatures(ID3D12Device5* device);
     void CreateRaytracingPipelineObject(ID3D12Device5* device);
     void CreateShaderBindingTable(Scene& scene, ID3D12Device5* device);
     void CreateDescriptorHeap(ID3D12Device5* device);
@@ -31,11 +32,13 @@ private:
 
     TextureResource m_outputResource;
     ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
+    DynamicConstantBuffer m_frameConstantBuffer;
 
     Shader m_rayGenLibrary;
     Shader m_hitLibrary;
     Shader m_missLibrary;
 
+    ComPtr<ID3D12RootSignature> m_globalRootSignature;
     ComPtr<ID3D12RootSignature> m_rayGenSignature;
     ComPtr<ID3D12RootSignature> m_hitSignature;
     ComPtr<ID3D12RootSignature> m_missSignature;

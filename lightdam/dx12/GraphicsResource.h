@@ -26,6 +26,7 @@ public:
     ID3D12Resource* Get() const { return m_resource; }
     ID3D12Resource* operator ->() const { return m_resource; }
 
+    // Write only mapping
     void* Map(uint32_t subresource = 0);
     void Unmap(uint32_t subresource = 0);
 

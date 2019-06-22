@@ -94,7 +94,9 @@
     <ClCompile Include="..\external\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="dx12\BottomLevelAS.cpp" />
+    <ClCompile Include="dx12\DynamicConstantBuffer.cpp" />
     <ClCompile Include="dx12\GraphicsResource.cpp" />
     <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp" />
     <ClCompile Include="dx12\Shader.cpp" />
@@ -120,7 +122,9 @@
     <ClInclude Include="..\external\imgui\imstb_textedit.h" />
     <ClInclude Include="..\external\imgui\imstb_truetype.h" />
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="dx12\BottomLevelAS.h" />
+    <ClInclude Include="dx12\DynamicConstantBuffer.h" />
     <ClInclude Include="dx12\GraphicsResource.h" />
     <ClInclude Include="dx12\RaytracingShaderBindingTable.h" />
     <ClInclude Include="dx12\Shader.h" />
