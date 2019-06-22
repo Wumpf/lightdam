@@ -2,13 +2,18 @@
 
 #include <DirectXMath.h>
 
-// Todo: Use camera from PBRT format directly
+namespace pbrt
+{
+    class Camera;
+}
 
 class Camera
 {
 public:
     Camera();
     ~Camera();
+
+    void ResetCamera(const pbrt::Camera& sceneCamera);
 
     void SetAspectRatio(float aspect)               { m_aspectRatio = aspect; }
     void SetVFovDegree(float hfovDegree)            { m_hFovDegree = hfovDegree; }

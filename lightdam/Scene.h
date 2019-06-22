@@ -6,6 +6,8 @@
 
 class TopLevelAS;
 
+// A static scene.
+// Created from a pbrt file, loaded into gpu memory.
 class Scene
 {
 public:

@@ -10,6 +10,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pbrt-parser", "pbrt-parser\pbrt-parser.vcxproj", "{3529D843-7EEE-4A54-B6AE-F067C9C75E0A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -20,6 +22,10 @@ Global
 		{3D3E0012-A829-4FF9-A0F3-B3DF466A4C28}.Debug|x64.Build.0 = Debug|x64
 		{3D3E0012-A829-4FF9-A0F3-B3DF466A4C28}.Release|x64.ActiveCfg = Release|x64
 		{3D3E0012-A829-4FF9-A0F3-B3DF466A4C28}.Release|x64.Build.0 = Release|x64
+		{3529D843-7EEE-4A54-B6AE-F067C9C75E0A}.Debug|x64.ActiveCfg = Debug|x64
+		{3529D843-7EEE-4A54-B6AE-F067C9C75E0A}.Debug|x64.Build.0 = Debug|x64
+		{3529D843-7EEE-4A54-B6AE-F067C9C75E0A}.Release|x64.ActiveCfg = Release|x64
+		{3529D843-7EEE-4A54-B6AE-F067C9C75E0A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

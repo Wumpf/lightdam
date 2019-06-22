@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\impl\3rdParty\happly.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\impl\semantic\SemanticParser.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Lexer.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Parser.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Scene.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\include\pbrtParser\math.h" />
+    <ClInclude Include="..\external\pbrt-parser\pbrtParser\include\pbrtParser\Scene.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\BinaryFileFormat.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Camera.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Geometry.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\importPBRT.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Lexer.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Lights.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Materials.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Parser.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Scene.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Scene.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Textures.cpp" />
+  </ItemGroup>
+</Project>

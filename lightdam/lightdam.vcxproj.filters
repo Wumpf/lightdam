@@ -50,9 +50,6 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="ErrorHandling.h" />
-    <ClInclude Include="..\external\d3dx12.h">
-      <Filter>external</Filter>
-    </ClInclude>
     <ClInclude Include="..\external\imgui\imgui_internal.h">
       <Filter>external\imgui</Filter>
     </ClInclude>
@@ -81,9 +78,6 @@
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="MathUtils.h" />
-    <ClInclude Include="..\external\dxcapi.use.h">
-      <Filter>external</Filter>
-    </ClInclude>
     <ClInclude Include="..\external\dxc\dxcapi.h">
       <Filter>external\dxc</Filter>
     </ClInclude>
@@ -109,6 +103,8 @@
       <Filter>dx12</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="..\external\d3dx12.h" />
+    <ClInclude Include="..\external\dxcapi.use.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
