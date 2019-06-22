@@ -1,7 +1,7 @@
 #include "Scene.h"
-#include "TopLevelAS.h"
-#include "BottomLevelAS.h"
-#include "SwapChain.h"
+#include "dx12/TopLevelAS.h"
+#include "dx12/BottomLevelAS.h"
+#include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
 #include "../external/d3dx12.h"
 

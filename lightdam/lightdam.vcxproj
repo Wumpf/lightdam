@@ -94,17 +94,17 @@
     <ClCompile Include="..\external\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="BottomLevelAS.cpp" />
-    <ClCompile Include="GraphicsResource.cpp" />
+    <ClCompile Include="dx12\BottomLevelAS.cpp" />
+    <ClCompile Include="dx12\GraphicsResource.cpp" />
+    <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp" />
+    <ClCompile Include="dx12\Shader.cpp" />
+    <ClCompile Include="dx12\SwapChain.cpp" />
+    <ClCompile Include="dx12\TopLevelAS.cpp" />
     <ClCompile Include="PathTracer.cpp" />
     <ClCompile Include="ErrorHandling.cpp" />
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="Shader.cpp" />
-    <ClCompile Include="RaytracingShaderBindingTable.cpp" />
-    <ClCompile Include="SwapChain.cpp" />
-    <ClCompile Include="TopLevelAS.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -120,17 +120,17 @@
     <ClInclude Include="..\external\imgui\imstb_textedit.h" />
     <ClInclude Include="..\external\imgui\imstb_truetype.h" />
     <ClInclude Include="Application.h" />
-    <ClInclude Include="BottomLevelAS.h" />
-    <ClInclude Include="GraphicsResource.h" />
+    <ClInclude Include="dx12\BottomLevelAS.h" />
+    <ClInclude Include="dx12\GraphicsResource.h" />
+    <ClInclude Include="dx12\RaytracingShaderBindingTable.h" />
+    <ClInclude Include="dx12\Shader.h" />
+    <ClInclude Include="dx12\SwapChain.h" />
+    <ClInclude Include="dx12\TopLevelAS.h" />
     <ClInclude Include="MathUtils.h" />
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="ErrorHandling.h" />
     <ClInclude Include="Gui.h" />
     <ClInclude Include="Scene.h" />
-    <ClInclude Include="Shader.h" />
-    <ClInclude Include="RaytracingShaderBindingTable.h" />
-    <ClInclude Include="SwapChain.h" />
-    <ClInclude Include="TopLevelAS.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

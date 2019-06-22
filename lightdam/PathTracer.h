@@ -1,9 +1,9 @@
 #pragma once
 
-#include "SwapChain.h"
-#include "Shader.h"
-#include "GraphicsResource.h"
-#include "RaytracingShaderBindingTable.h"
+#include "dx12/SwapChain.h"
+#include "dx12/Shader.h"
+#include "dx12/GraphicsResource.h"
+#include "dx12/RaytracingShaderBindingTable.h"
 
 struct IDxcBlob;
 class Scene;

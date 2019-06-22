@@ -3,7 +3,7 @@
 #include "examples/imgui_impl_dx12.h"
 #include "examples/imgui_impl_win32.h"
 #include "Window.h"
-#include "SwapChain.h"
+#include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

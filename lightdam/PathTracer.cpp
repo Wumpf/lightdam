@@ -6,8 +6,8 @@
 #include <algorithm>
 
 #include "Scene.h"
-#include "TopLevelAS.h"
-#include "GraphicsResource.h"
+#include "dx12/TopLevelAS.h"
+#include "dx12/GraphicsResource.h"
 #include "ErrorHandling.h"
 #include "MathUtils.h"
 

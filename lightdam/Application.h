@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SwapChain.h"
+#include "dx12/SwapChain.h"
 #include <memory>
 #include <wrl/client.h>
 

@@ -5,7 +5,6 @@
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="ErrorHandling.cpp" />
-    <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="..\external\imgui\imgui_draw.cpp">
       <Filter>external\imgui</Filter>
     </ClCompile>
@@ -24,17 +23,29 @@
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="PathTracer.cpp" />
     <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="BottomLevelAS.cpp" />
-    <ClCompile Include="TopLevelAS.cpp" />
-    <ClCompile Include="GraphicsResource.cpp" />
-    <ClCompile Include="Shader.cpp" />
-    <ClCompile Include="RaytracingShaderBindingTable.cpp" />
+    <ClCompile Include="dx12\Shader.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="dx12\SwapChain.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="dx12\TopLevelAS.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="dx12\BottomLevelAS.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="dx12\GraphicsResource.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="ErrorHandling.h" />
-    <ClInclude Include="SwapChain.h" />
     <ClInclude Include="..\external\d3dx12.h">
       <Filter>external</Filter>
     </ClInclude>
@@ -65,18 +76,31 @@
     <ClInclude Include="Gui.h" />
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="Scene.h" />
-    <ClInclude Include="BottomLevelAS.h" />
     <ClInclude Include="MathUtils.h" />
-    <ClInclude Include="TopLevelAS.h" />
-    <ClInclude Include="GraphicsResource.h" />
-    <ClInclude Include="Shader.h" />
     <ClInclude Include="..\external\dxcapi.use.h">
       <Filter>external</Filter>
     </ClInclude>
     <ClInclude Include="..\external\dxc\dxcapi.h">
       <Filter>external\dxc</Filter>
     </ClInclude>
-    <ClInclude Include="RaytracingShaderBindingTable.h" />
+    <ClInclude Include="dx12\RaytracingShaderBindingTable.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\Shader.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\SwapChain.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\TopLevelAS.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\BottomLevelAS.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\GraphicsResource.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -93,6 +117,9 @@
     </Filter>
     <Filter Include="external\dxc">
       <UniqueIdentifier>{b1b3675c-7349-4026-b6ab-a15f57c12d07}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dx12">
+      <UniqueIdentifier>{8902e900-b022-40e1-a7c2-a27f7138d772}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

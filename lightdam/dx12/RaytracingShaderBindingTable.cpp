@@ -1,5 +1,5 @@
 #include "RaytracingShaderBindingTable.h"
-#include "MathUtils.h"
+#include "../MathUtils.h"
 #include <algorithm>
 
 void RaytracingShaderBindingTable::DispatchRays(ID3D12GraphicsCommandList4* commandList, uint32_t width, uint32_t height, uint32_t depth)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GraphicsResource.h"
+#include "dx12/GraphicsResource.h"
 #include <memory>
 #include <vector>
 

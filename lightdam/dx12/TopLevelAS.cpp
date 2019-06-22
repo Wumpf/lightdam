@@ -1,6 +1,6 @@
 #include "TopLevelAS.h"
 #include "BottomLevelAS.h"
-#include "MathUtils.h"
+#include "../MathUtils.h"
 
 using namespace DirectX;
 

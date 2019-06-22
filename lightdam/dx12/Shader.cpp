@@ -1,7 +1,7 @@
 #include "Shader.h"
-#include "ErrorHandling.h"
+#include "../ErrorHandling.h"
 #include <Windows.h>
-#include "../external/dxcapi.use.h"
+#include "../../external/dxcapi.use.h"
 
 #include <fstream>
 #include <sstream>

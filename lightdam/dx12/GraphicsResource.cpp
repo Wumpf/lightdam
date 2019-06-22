@@ -1,9 +1,9 @@
 #include "GraphicsResource.h"
-#include "ErrorHandling.h"
-#include "MathUtils.h"
+#include "../ErrorHandling.h"
+#include "../MathUtils.h"
 
 #include <d3d12.h>
-#include "../external/d3dx12.h"
+#include "../../external/d3dx12.h"
 
 GraphicsResource::GraphicsResource(ID3D12Resource* resource, uint64_t size)
     : m_resource(resource)
