@@ -17,7 +17,7 @@ public:
 
     void SetScene(Scene& scene, ID3D12Device5* device);
 
-    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, int frameIndex);
+    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const class Camera& activeCamera, int frameIndex);
 
 
     // todo: resize

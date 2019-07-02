@@ -4,16 +4,18 @@
 
 using namespace Microsoft::WRL;
 
+class Camera;
+
 class Gui
 {
 public:
     Gui(class Window* window, struct ID3D12Device* device);
     ~Gui();
 
-    void Draw(struct ID3D12GraphicsCommandList* commandList);
+    void Draw(Camera& camera, struct ID3D12GraphicsCommandList* commandList);
 
 private:
-    void SetupUI();
+    void SetupUI(Camera& camera);
 
     ComPtr<struct ID3D12DescriptorHeap> m_fontDescriptorHeap;
 

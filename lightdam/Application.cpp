@@ -6,6 +6,8 @@
 #include "PathTracer.h"
 #include "ErrorHandling.h"
 
+#include <chrono>
+
 #include <dxgi1_6.h>
 #include "../external/d3dx12.h"
 
@@ -29,20 +31,26 @@ Application::Application(int argc, char** argv)
     m_window->GetSize(windowWidth, windowHeight);
     m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
     m_pathTracer->SetScene(*m_scene, m_device.Get());
+
+    m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
+    m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
+    m_activeCamera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
 }
 
 Application::~Application()
 {
     m_swapChain->WaitUntilGraphicsQueueProcessingDone();
 
+    m_commandList->Close();
+    m_commandList = nullptr;
+    for (int i = 0; i < SwapChain::MaxFramesInFlight; ++i)
+        m_commandAllocators[i] = nullptr;
+
     m_pathTracer.reset();
     m_scene.reset();
     m_gui.reset();
     m_swapChain.reset();
     m_window.reset();
-    for (int i = 0; i < SwapChain::MaxFramesInFlight; ++i)
-        m_commandAllocators[i] = nullptr;
-    m_commandList = nullptr;
     m_device = nullptr;
 
 #ifdef USE_DEBUG_DEVICE
@@ -54,10 +62,17 @@ Application::~Application()
 
 void Application::Run()
 {
+    std::chrono::duration<float> lastFrameTime;
     while (!m_window->IsClosed())
     {
-        RenderFrame();
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        m_swapChain->BeginFrame();
         m_window->ProcessWindowMessages();
+        m_activeCamera.Update(lastFrameTime.count());
+        RenderFrame();
+
+        lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
     }
 }
 
@@ -124,8 +139,6 @@ void Application::CreateFrameResources()
 
 void Application::RenderFrame()
 {
-    m_swapChain->BeginFrame();
-
     PopulateCommandList();
 
     // Execute lists and swap.
@@ -145,7 +158,7 @@ void Application::PopulateCommandList()
     // Set necessary state.
     unsigned int windowWidth, windowHeight;
     m_window->GetSize(windowWidth, windowHeight);
-    //m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
     D3D12_VIEWPORT viewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(windowWidth), static_cast<float>(windowHeight) };
     m_commandList->RSSetViewports(1, &viewport);
     D3D12_RECT scissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(windowWidth), static_cast<LONG>(windowHeight) };
@@ -160,8 +173,8 @@ void Application::PopulateCommandList()
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
-    m_pathTracer->DrawIteration(m_commandList.Get(), m_swapChain->GetCurrentRenderTarget(), m_swapChain->GetCurrentFrameIndex());
-    m_gui->Draw(m_commandList.Get());
+    m_pathTracer->DrawIteration(m_commandList.Get(), m_swapChain->GetCurrentRenderTarget(), m_activeCamera, m_swapChain->GetCurrentFrameIndex());
+    m_gui->Draw(m_activeCamera, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

@@ -5,6 +5,7 @@
 #include "Window.h"
 #include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
+#include "Camera.h"
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -38,14 +39,14 @@ Gui::~Gui()
     ImGui::DestroyContext();
 }
 
-void Gui::Draw(ID3D12GraphicsCommandList* commandList)
+void Gui::Draw(Camera& camera, ID3D12GraphicsCommandList* commandList)
 {
     // Start new frame.
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    SetupUI();
+    SetupUI(camera);
 
     // write out to command list.
     commandList->SetDescriptorHeaps(1, m_fontDescriptorHeap.GetAddressOf());
@@ -53,12 +54,31 @@ void Gui::Draw(ID3D12GraphicsCommandList* commandList)
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 }
 
-void Gui::SetupUI()
+void Gui::SetupUI(Camera& camera)
 {
+    static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
+
     ImGui::Begin("Lightdam");
-
-    ImGui::Text("This is some useful text.");
-
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    {
+        ImGui::TextColored(categoryTextColor, "Camera");
+        ImGui::BeginChild("camera");
+        auto pos = camera.GetPosition();
+        if (ImGui::DragFloat3("Position", pos.m128_f32, 0.1f, -100.0f, 100.f))
+            camera.SetPosition(pos);
+
+        auto dir = camera.GetDirection();
+        if (ImGui::DragFloat3("Direction", dir.m128_f32, 0.1f, -1.0f, 1.0f))
+            camera.SetDirection(DirectX::XMVector3Normalize(dir));
+
+        float fov = camera.GetHFovDegree();
+        if (ImGui::DragFloat("vFOV", &fov, 1.0f, 1.0f, 180.f))
+            camera.SetVFovDegree(fov);
+
+        ImGui::EndChild();
+    }
+
+
     ImGui::End();
 }

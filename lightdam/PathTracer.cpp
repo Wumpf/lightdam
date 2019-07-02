@@ -53,16 +53,12 @@ void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
     device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
 }
 
-void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, int frameIndex)
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const Camera& activeCamera, int frameIndex)
 {
-    // todo: Read active camera from scene.
+    // Update per-frame constants.
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
-    Camera camera;
-    camera.SetLookAt(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
-    camera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
-    camera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
-    camera.ComputeCameraParams(globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
-    globalConstants->CameraPosition = camera.GetPosition();
+    activeCamera.ComputeCameraParams(globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
+    globalConstants->CameraPosition = activeCamera.GetPosition();
 
     // Setup global resources.
     ID3D12DescriptorHeap* heaps[] = { m_rayGenDescriptorHeap.Get() };
