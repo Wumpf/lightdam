@@ -19,6 +19,8 @@ private:
     void CreateDeviceAndSwapChain();
     void CreateFrameResources();
 
+    void OnWindowResize();
+
     void RenderFrame();
     void PopulateCommandList();
 

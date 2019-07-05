@@ -12,15 +12,17 @@ GraphicsResource::GraphicsResource(ID3D12Resource* resource, uint64_t size)
     //m_resource->AddRef();
 }
 
-GraphicsResource::~GraphicsResource()
+void GraphicsResource::Release()
 {
-    if (m_resource)
-        m_resource->Release();
+    if (!m_resource)
+        return;
+    m_resource->Release();
+    m_resource = nullptr;
 }
 
 void GraphicsResource::operator=(GraphicsResource&& temp)
 {
-    this->~GraphicsResource();
+    Release();
     memcpy(this, &temp, sizeof(GraphicsResource));
     temp.m_resource = nullptr;
 }

@@ -40,6 +40,13 @@ PathTracer::~PathTracer()
 {
 }
 
+void PathTracer::ResizeOutput(uint32_t outputWidth, uint32_t outputHeight)
+{
+    ComPtr<ID3D12Device5> device;
+    m_outputResource->GetDevice(IID_PPV_ARGS(&device));
+    CreateOutputBuffer(device.Get(), outputWidth, outputHeight);
+}
+
 void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
 {
     CreateShaderBindingTable(scene, device);

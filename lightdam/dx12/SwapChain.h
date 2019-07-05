@@ -12,6 +12,8 @@ public:
     SwapChain(const class Window& window, struct IDXGIFactory4* factory, struct ID3D12Device* device);
     ~SwapChain();
 
+    void Resize(uint32_t width, uint32_t height);
+
     unsigned int GetCurrentFrameIndex() const               { return m_frameIndex; }
     const TextureResource& GetCurrentRenderTarget() const   { return m_backbuffers[m_bufferIndex]; }
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveBackbufferDescriptorHandle() const;
@@ -32,6 +34,8 @@ public:
     static const int MaxFramesInFlight = 2;
 
 private:
+
+    void CreateBackbufferResources();
 
     // As by recommendation of Nvidia and Intel, we have one more buffer than we fill with the gpu.
     // https://developer.nvidia.com/dx12-dos-and-donts

@@ -15,13 +15,15 @@ class GraphicsResource
 public:
     GraphicsResource() = default;
     GraphicsResource(ID3D12Resource* resource, uint64_t size);
-    virtual ~GraphicsResource();
+    virtual ~GraphicsResource() { Release(); }
 
     GraphicsResource(GraphicsResource&& temp) { *this = std::move(temp); }
     void operator = (GraphicsResource&& temp);
 
     GraphicsResource(const GraphicsResource&) = delete;
     void operator = (const GraphicsResource&) = delete;
+
+    void Release();
 
     ID3D12Resource* Get() const { return m_resource; }
     ID3D12Resource* operator ->() const { return m_resource; }

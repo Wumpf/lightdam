@@ -24,7 +24,7 @@ public:
     bool IsClosed() const { return m_closed; }
     HWND GetHandle() const { return m_hwnd; }
 
-    void GetSize(unsigned int& width, unsigned int& height) const;
+    void GetSize(uint32_t& width, uint32_t& height) const;
 
 private:
     friend LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

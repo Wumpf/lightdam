@@ -15,6 +15,7 @@ public:
     PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
     ~PathTracer();
 
+    void ResizeOutput(uint32_t outputWidth, uint32_t outputHeight);
     void SetScene(Scene& scene, ID3D12Device5* device);
 
     void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const class Camera& activeCamera, int frameIndex);

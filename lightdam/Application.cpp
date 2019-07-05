@@ -35,6 +35,16 @@ Application::Application(int argc, char** argv)
     m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
     m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
     m_activeCamera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
+
+    m_window->AddProcHandler([this](HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+        if (message == WM_SIZE)
+        {
+            OnWindowResize();
+            return true;
+        }
+        return false;
+    });
 }
 
 Application::~Application()
@@ -137,6 +147,15 @@ void Application::CreateFrameResources()
     ThrowIfFailed(m_commandList->Close());
 }
 
+void Application::OnWindowResize()
+{
+    uint32_t windowWidth, windowHeight;
+    m_window->GetSize(windowWidth, windowHeight);
+    m_swapChain->Resize(windowWidth, windowHeight);
+    m_pathTracer->ResizeOutput(windowWidth, windowHeight);
+    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
+}
+
 void Application::RenderFrame()
 {
     PopulateCommandList();
@@ -156,9 +175,8 @@ void Application::PopulateCommandList()
     ThrowIfFailed(m_commandList->Reset(m_commandAllocators[frameIndex].Get(), nullptr));
 
     // Set necessary state.
-    unsigned int windowWidth, windowHeight;
+    uint32_t windowWidth, windowHeight;
     m_window->GetSize(windowWidth, windowHeight);
-    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
     D3D12_VIEWPORT viewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(windowWidth), static_cast<float>(windowHeight) };
     m_commandList->RSSetViewports(1, &viewport);
     D3D12_RECT scissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(windowWidth), static_cast<LONG>(windowHeight) };

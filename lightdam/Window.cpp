@@ -68,7 +68,7 @@ void Window::ProcessWindowMessages()
     }
 }
 
-void Window::GetSize(unsigned int& width, unsigned int& height) const
+void Window::GetSize(uint32_t& width, uint32_t& height) const
 {
     RECT rect = {};
     ::GetClientRect(m_hwnd, &rect);
