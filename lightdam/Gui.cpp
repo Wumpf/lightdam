@@ -59,11 +59,11 @@ void Gui::SetupUI(Camera& camera)
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
 
     ImGui::Begin("Lightdam");
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
+    if (ImGui::TreeNode("Camera"))
     {
-        ImGui::TextColored(categoryTextColor, "Camera");
-        ImGui::BeginChild("camera");
         auto pos = camera.GetPosition();
         if (ImGui::DragFloat3("Position", pos.m128_f32, 0.1f, -100.0f, 100.f))
             camera.SetPosition(pos);
@@ -76,9 +76,8 @@ void Gui::SetupUI(Camera& camera)
         if (ImGui::DragFloat("vFOV", &fov, 1.0f, 1.0f, 180.f))
             camera.SetVFovDegree(fov);
 
-        ImGui::EndChild();
+        ImGui::TreePop();
     }
-
 
     ImGui::End();
 }
