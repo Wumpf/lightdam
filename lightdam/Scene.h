@@ -19,6 +19,8 @@ public:
     {
         GraphicsResource vertexBuffer;
         uint32_t vertexCount;
+        GraphicsResource indexBuffer;
+        uint32_t indexCount;
     };
 
     const std::vector<Mesh>& GetMeshes() const                  { return m_meshes; }
