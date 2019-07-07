@@ -3,20 +3,24 @@
 #include "dx12/GraphicsResource.h"
 #include <memory>
 #include <vector>
+#include <string>
 
 class TopLevelAS;
 
-// A static scene.
-// Created from a pbrt file, loaded into gpu memory.
+// A static scene with DXR Raytracing accelleration structure.
 class Scene
 {
 public:
     // todo: load from PBR file.
-    static std::unique_ptr<Scene> LoadScene(class SwapChain& swapChain, struct ID3D12Device5* device);
+    static std::unique_ptr<Scene> LoadTestScene(class SwapChain& swapChain, struct ID3D12Device5* device);
+    static std::unique_ptr<Scene> LoadPbrtScene(const std::string& pbrtFilePath, class SwapChain& swapChain, struct ID3D12Device5* device);
     ~Scene();
 
     struct Mesh
     {
+        Mesh() = default;
+        Mesh(Mesh&&) = default;
+
         GraphicsResource vertexBuffer;
         uint32_t vertexCount;
         GraphicsResource indexBuffer;
@@ -29,6 +33,9 @@ public:
 private:
 
     Scene();
+
+    void CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5* device);
+
 
     std::unique_ptr<TopLevelAS> m_tlas;
     std::vector<std::unique_ptr<class BottomLevelAS>> m_blas;

@@ -25,12 +25,15 @@ Application::Application(int argc, char** argv)
     CreateFrameResources();
 
     m_gui.reset(new Gui(m_window.get(), m_device.Get()));
-    m_scene = Scene::LoadScene(*m_swapChain, m_device.Get());
 
     unsigned int windowWidth, windowHeight;
     m_window->GetSize(windowWidth, windowHeight);
     m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
-    m_pathTracer->SetScene(*m_scene, m_device.Get());
+
+    if (argc > 1)
+        LoadScene(argv[1]);
+    else
+        LoadScene("");
 
     m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
     m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
@@ -87,6 +90,19 @@ void Application::Run()
 
         lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
     }
+}
+
+void Application::LoadScene(const std::string& pbrtFileName)
+{
+    std::unique_ptr<Scene> newScene;
+    if (pbrtFileName.empty())
+        newScene = Scene::LoadTestScene(*m_swapChain, m_device.Get());
+    else
+        newScene = Scene::LoadPbrtScene(pbrtFileName, *m_swapChain, m_device.Get());
+    if (!newScene)
+        return;
+    m_scene = std::move(newScene);
+    m_pathTracer->SetScene(*m_scene, m_device.Get());
 }
 
 void Application::CreateDeviceAndSwapChain()
@@ -183,8 +199,6 @@ void Application::PopulateCommandList()
     m_window->GetSize(windowWidth, windowHeight);
     D3D12_VIEWPORT viewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(windowWidth), static_cast<float>(windowHeight) };
     m_commandList->RSSetViewports(1, &viewport);
-    D3D12_RECT scissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(windowWidth), static_cast<LONG>(windowHeight) };
-    m_commandList->RSSetScissorRects(1, &scissorRect);
 
     // Indicate that the back buffer will be used as a render target.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));

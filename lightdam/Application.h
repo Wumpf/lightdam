@@ -3,6 +3,7 @@
 #include "dx12/SwapChain.h"
 #include "Camera.h"
 #include <memory>
+#include <string>
 
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
@@ -14,6 +15,7 @@ public:
     ~Application();
 
     void Run();
+    void LoadScene(const std::string& pbrtFileName);
 
 private:
     void CreateDeviceAndSwapChain();

@@ -30,7 +30,9 @@
     <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\semantic\Textures.cpp" />
     <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Lexer.cpp" />
     <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Parser.cpp" />
-    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Scene.cpp" />
+    <ClCompile Include="..\external\pbrt-parser\pbrtParser\impl\syntactic\Scene.cpp">
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)scene2.obj</ObjectFileName>
+    </ClCompile>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
