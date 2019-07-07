@@ -8,9 +8,11 @@ bool IsPowerOfTwo(T x)
     return ((x & ~(x - 1)) == x) ? x : 0;
 }
 
-template<typename T>
-T Align(T v, T powerOf2Alignment)
+template<typename Value, typename Alignment=Value>
+Value Align(Value v, Alignment powerOf2Alignment)
 {
     assert(IsPowerOfTwo(powerOf2Alignment));
-    return ((v)+(powerOf2Alignment)-1) & ~((powerOf2Alignment)-1);
+    auto _v = (uintptr_t)v;
+    auto _powerOf2Alignment = (uintptr_t)powerOf2Alignment;
+    return (Value)(((_v)+(_powerOf2Alignment)-1) & ~((_powerOf2Alignment)-1));
 }

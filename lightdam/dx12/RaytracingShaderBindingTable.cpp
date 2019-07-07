@@ -24,13 +24,13 @@ RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12Sta
     // Startaddresses of subtables must be D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT
     // For simplicity we just round up on the subtable sizes which is pretty much only a conceptual difference.
 
-    table.m_rayGenerationShaderRecord.SizeInBytes = Align<uint64_t>(m_rayGenProgramEntry.GetSize(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);  m_rayGenProgramEntry.GetSize();
+    table.m_rayGenerationShaderRecord.SizeInBytes = Align<uint64_t>(m_rayGenProgramEntry.GetSize(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
     table.m_missShaderTable.StrideInBytes = Entry::GetSize(m_subtableMissEntries.maxNumParameters);
-    table.m_missShaderTable.SizeInBytes = Align<uint64_t>(table.m_missShaderTable.StrideInBytes * m_subtableMissEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+    table.m_missShaderTable.SizeInBytes = Align(table.m_missShaderTable.StrideInBytes * m_subtableMissEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
     table.m_hitGroupTable.StrideInBytes = Entry::GetSize(m_subtableHitGroupEntries.maxNumParameters);
-    table.m_hitGroupTable.SizeInBytes = Align<uint64_t>(table.m_hitGroupTable.StrideInBytes * m_subtableHitGroupEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+    table.m_hitGroupTable.SizeInBytes = Align(table.m_hitGroupTable.StrideInBytes * m_subtableHitGroupEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
     const auto bufferSize = table.m_rayGenerationShaderRecord.SizeInBytes + table.m_missShaderTable.SizeInBytes + table.m_hitGroupTable.SizeInBytes;
     table.m_table = GraphicsResource::CreateUploadHeap(L"shader binding table", bufferSize, device);
@@ -46,14 +46,17 @@ RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12Sta
         for (const auto& entry : m_subtableMissEntries.entries)
         {
             entry.CopyData(raytracingPipelineProperties, currentRecord);
-            currentRecord += table.m_missShaderTable.SizeInBytes;
+            currentRecord += table.m_missShaderTable.StrideInBytes;
         }
+        currentRecord = Align(currentRecord, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+        assert(currentRecord == (uint8_t*)tableData.Get() + table.m_rayGenerationShaderRecord.SizeInBytes + table.m_missShaderTable.SizeInBytes);
+
         for (const auto& entry : m_subtableHitGroupEntries.entries)
         {
             entry.CopyData(raytracingPipelineProperties, currentRecord);
-            currentRecord += table.m_hitGroupTable.SizeInBytes;
+            currentRecord += table.m_hitGroupTable.StrideInBytes;
         }
-
+        currentRecord = Align(currentRecord, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
         assert(currentRecord == (uint8_t*)tableData.Get() + bufferSize);
     }
 
