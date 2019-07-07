@@ -7,10 +7,11 @@
 
 SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12Device* device)
     : m_frameIndex(0)
-    , m_fenceValues{}
+    , m_nextFenceSignal(1)
+    , m_lastSignaledFenceValues{}
 {
     // Create synchronization objects.
-    ThrowIfFailed(device->CreateFence(m_fenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+    ThrowIfFailed(device->CreateFence(m_lastSignaledFenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
     m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (m_fenceEvent == nullptr)
     {
@@ -118,19 +119,8 @@ void SwapChain::CreateBackbufferResources()
 
 void SwapChain::WaitUntilGraphicsQueueProcessingDone()
 {
-    m_swapChain->GetFrameLatencyWaitableObject();
-
-    // Schedule a Signal command in the queue.
-    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
-
-    // Wait until the fence has been processed.
-    ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
-    if (WaitForSingleObject(m_fenceEvent, 1000 * 10) == WAIT_TIMEOUT)
-        throw std::exception("Waited for more than 10s on gpu work!");
-
-    // Increment the fence value for the current frame.
-    m_frameIndex = (m_frameIndex + 1) % MaxFramesInFlight;
-    ++m_fenceValues[m_frameIndex];
+    SignalFenceForCurrentFrame();
+    WaitForLastSignalOnCurrentFrame();
 }
 
 void SwapChain::BeginFrame()
@@ -139,20 +129,13 @@ void SwapChain::BeginFrame()
     if (WaitForSingleObject(m_swapChain->GetFrameLatencyWaitableObject(), 1000 * 10))
         throw std::exception("Waited for more than 10s on gpu work!");
 
+    // If the frame at this slot, is not ready yet, wait until it is ready, otherwise we would use resources that are still in use.
+    // (latency object might have let us through regardless - it might not even wait for vsync!)
+    WaitForLastSignalOnCurrentFrame();
+
     // Advance frameindex
     m_bufferIndex = m_swapChain->GetCurrentBackBufferIndex();
     m_frameIndex = (m_frameIndex + 1) % MaxFramesInFlight;
-
-    // If the frame at this slot, is not ready yet, wait until it is ready.
-    if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
-    {
-        ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
-        if (WaitForSingleObject(m_fenceEvent, 1000 * 10) == WAIT_TIMEOUT)
-            throw std::exception("Waited for more than 10s on gpu work!");
-    }
-
-    // Set the fence value for the next frame.
-    ++m_fenceValues[m_frameIndex];
 }
 
 void SwapChain::Present()
@@ -162,5 +145,23 @@ void SwapChain::Present()
     ThrowIfFailed(m_swapChain->Present(0, 0));
 
     // Schedule a Signal command in the queue.
-    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
+    SignalFenceForCurrentFrame();
 }
+
+void SwapChain::SignalFenceForCurrentFrame()
+{
+    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_nextFenceSignal));
+    m_lastSignaledFenceValues[m_frameIndex] = m_nextFenceSignal;
+    ++m_nextFenceSignal;
+}
+
+void SwapChain::WaitForLastSignalOnCurrentFrame()
+{
+    if (m_fence->GetCompletedValue() >= m_lastSignaledFenceValues[m_frameIndex])
+        return;
+
+    ThrowIfFailed(m_fence->SetEventOnCompletion(m_lastSignaledFenceValues[m_frameIndex], m_fenceEvent));
+    if (WaitForSingleObject(m_fenceEvent, 1000 * 10) == WAIT_TIMEOUT)
+        throw std::exception("Waited for more than 10s on gpu work!");
+}
+

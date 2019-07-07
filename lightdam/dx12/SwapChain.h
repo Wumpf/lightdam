@@ -36,6 +36,8 @@ public:
 private:
 
     void CreateBackbufferResources();
+    void SignalFenceForCurrentFrame();
+    void WaitForLastSignalOnCurrentFrame();
 
     // As by recommendation of Nvidia and Intel, we have one more buffer than we fill with the gpu.
     // https://developer.nvidia.com/dx12-dos-and-donts
@@ -54,5 +56,6 @@ private:
     unsigned int m_bufferIndex;
     void* m_fenceEvent;
     ComPtr<struct ID3D12Fence> m_fence;
-    unsigned long long m_fenceValues[MaxFramesInFlight];
+    uint64_t m_nextFenceSignal;
+    uint64_t m_lastSignaledFenceValues[MaxFramesInFlight];
 };
