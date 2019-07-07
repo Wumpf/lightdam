@@ -5,7 +5,12 @@
 #include "Window.h"
 #include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
+
 #include "Camera.h"
+#include "Application.h"
+#include "Scene.h"
+
+#include <numeric>
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -39,14 +44,14 @@ Gui::~Gui()
     ImGui::DestroyContext();
 }
 
-void Gui::Draw(Camera& camera, ID3D12GraphicsCommandList* commandList)
+void Gui::Draw(Application& application, ID3D12GraphicsCommandList* commandList)
 {
     // Start new frame.
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    SetupUI(camera);
+    SetupUI(application);
 
     // write out to command list.
     commandList->SetDescriptorHeaps(1, m_fontDescriptorHeap.GetAddressOf());
@@ -54,7 +59,7 @@ void Gui::Draw(Camera& camera, ID3D12GraphicsCommandList* commandList)
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 }
 
-void Gui::SetupUI(Camera& camera)
+void Gui::SetupUI(Application& application)
 {
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
 
@@ -62,8 +67,19 @@ void Gui::SetupUI(Camera& camera)
     ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
-    if (ImGui::TreeNode("Camera"))
+    if (ImGui::CollapsingHeader("Scene"))
     {
+        const Scene& scene = application.GetScene();
+        ImGui::LabelText("Active Scene", "%s", scene.GetSceneFilePath().c_str());
+        ImGui::LabelText("Number of Meshes", "%i", scene.GetMeshes().size());
+        uint64_t totalTriangleCount = 0;
+        for (const auto& mesh : scene.GetMeshes()) totalTriangleCount += mesh.indexCount / 3;
+        ImGui::LabelText("Total Triangle Count", "%i", totalTriangleCount);
+    }
+    if (ImGui::CollapsingHeader("Camera"))
+    {
+        Camera& camera = application.GetActiveCamera();
+
         auto pos = camera.GetPosition();
         if (ImGui::DragFloat3("Position", pos.m128_f32, 0.1f, -100.0f, 100.f))
             camera.SetPosition(pos);
@@ -73,14 +89,12 @@ void Gui::SetupUI(Camera& camera)
             camera.SetDirection(DirectX::XMVector3Normalize(dir));
 
         float fov = camera.GetHFovDegree();
-        if (ImGui::DragFloat("vFOV", &fov, 1.0f, 1.0f, 180.f))
+        if (ImGui::SliderAngle("vFOV", &fov))
             camera.SetVFovDegree(fov);
 
         float speed = camera.GetMoveSpeed();
         if (ImGui::DragFloat("Speed", &speed, 1.0f, 1.0f, 1000.f))
             camera.SetMoveSpeed(speed);
-
-        ImGui::TreePop();
     }
 
     ImGui::End();

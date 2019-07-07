@@ -72,6 +72,7 @@ std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5*
     auto scene = std::unique_ptr<Scene>(new Scene());
     scene->m_meshes.resize(1);
     CreateTestTriangle(scene->m_meshes.back(), device);
+    scene->m_originFilePath = "Builtin Test Scene";
     scene->CreateAccellerationDataStructure(swapChain, device);
     return scene;
 }
@@ -94,6 +95,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
 
 
     auto scene = std::unique_ptr<Scene>(new Scene());
+    scene->m_originFilePath = pbrtFilePath;
 
     for (const pbrt::Instance::SP& instance : pbrtScene->world->instances)
     {

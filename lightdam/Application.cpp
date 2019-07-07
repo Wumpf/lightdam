@@ -210,7 +210,7 @@ void Application::PopulateCommandList()
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
     m_pathTracer->DrawIteration(m_commandList.Get(), m_swapChain->GetCurrentRenderTarget(), m_activeCamera, m_swapChain->GetCurrentFrameIndex());
-    m_gui->Draw(m_activeCamera, m_commandList.Get());
+    m_gui->Draw(*this, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

@@ -30,12 +30,15 @@ public:
     const std::vector<Mesh>& GetMeshes() const                  { return m_meshes; }
     const TopLevelAS& GetTopLevelAccellerationStructure() const { return *m_tlas; }
 
+    const std::string& GetSceneFilePath() const { return m_originFilePath; }
+
 private:
 
     Scene();
 
     void CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5* device);
 
+    std::string m_originFilePath;
 
     std::unique_ptr<TopLevelAS> m_tlas;
     std::vector<std::unique_ptr<class BottomLevelAS>> m_blas;
