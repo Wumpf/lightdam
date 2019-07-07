@@ -76,6 +76,10 @@ void Gui::SetupUI(Camera& camera)
         if (ImGui::DragFloat("vFOV", &fov, 1.0f, 1.0f, 180.f))
             camera.SetVFovDegree(fov);
 
+        float speed = camera.GetMoveSpeed();
+        if (ImGui::DragFloat("Speed", &speed, 1.0f, 1.0f, 1000.f))
+            camera.SetMoveSpeed(speed);
+
         ImGui::TreePop();
     }
 

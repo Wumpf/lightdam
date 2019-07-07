@@ -31,6 +31,9 @@ public:
 
     void ComputeCameraParams(DirectX::XMVECTOR& cameraU, DirectX::XMVECTOR& cameraV, DirectX::XMVECTOR& cameraW) const;
 
+    float GetMoveSpeed() const          { return m_moveSpeed; }
+    void SetMoveSpeed(float moveSpeed)  { m_moveSpeed = moveSpeed; }
+
 private:
     
     // Camera parameters.
