@@ -102,7 +102,7 @@ void PathTracer::CreateShaderBindingTable(Scene& scene, ID3D12Device5* device)
     bindingTableGenerator.SetRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
     bindingTableGenerator.AddMissProgram(L"Miss", {});
     for (const auto& mesh : scene.GetMeshes())
-        bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress() });
+        bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress(), mesh.indexBuffer->GetGPUVirtualAddress() });
 
     m_shaderBindingTable = bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), device);
 }
@@ -170,8 +170,10 @@ void PathTracer::CreateRootSignatures(ID3D12Device5* device)
     }
     // Hit local root signature.
     {
-        CD3DX12_ROOT_PARAMETER1 param; param.InitAsShaderResourceView(0); // Vertex buffer in t0
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(1, &param, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
+        CD3DX12_ROOT_PARAMETER1 params[2];
+        params[0].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Vertex buffer in t0,space0
+        params[1].InitAsShaderResourceView(0, 1, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Index buffer in t0,space1
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(sizeof(params) / sizeof(params[0]), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
         m_hitSignature = CreateRootSignature(L"Hit", device, rootSignatureDesc);
     }
 }

@@ -24,3 +24,24 @@ cbuffer GlobalConstants : register(b0)
     float3 CameraW;
     float3 CameraPosition;
 };
+
+
+float BarycentricLerp(in float v0, in float v1, in float v2, in float3 barycentrics)
+{
+    return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
+}
+
+float2 BarycentricLerp(in float2 v0, in float2 v1, in float2 v2, in float3 barycentrics)
+{
+    return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
+}
+
+float3 BarycentricLerp(in float3 v0, in float3 v1, in float3 v2, in float3 barycentrics)
+{
+    return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
+}
+
+float4 BarycentricLerp(in float4 v0, in float4 v1, in float4 v2, in float3 barycentrics)
+{
+    return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
+}

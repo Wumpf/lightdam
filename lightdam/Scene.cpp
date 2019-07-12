@@ -10,6 +10,12 @@
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
+struct Vertex
+{
+    DirectX::XMFLOAT3 position;
+    DirectX::XMFLOAT3 normal;
+};
+
 // todo: move
 static std::wstring Utf8toUtf16(const std::string& str)
 {
@@ -31,20 +37,14 @@ static std::wstring Utf8toUtf16(const std::string& str)
     return buffer;
 }
 
-struct Vertex
-{
-    DirectX::XMFLOAT3 position;
-    DirectX::XMFLOAT4 color;
-};
-
-static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device)
+static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX::XMFLOAT3 offset, DirectX::XMFLOAT3 normal)
 {
     // Define the geometry for a triangle.
     Vertex triangleVertices[] =
     {
-        { { 0.0f, 0.25f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-        { { 0.25f, -0.25f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-        { { -0.25f, -0.25f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+        { { 0.0f + offset.x, 0.25f + offset.y, offset.z }, normal },
+        { { 0.25f + offset.x, -0.25f + offset.y, offset.z }, normal },
+        { { -0.25f + offset.x, -0.25f + offset.y, offset.z }, normal }
     };
 
     // TODO: Don't use upload heaps
@@ -70,8 +70,10 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device)
 std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5* device)
 {
     auto scene = std::unique_ptr<Scene>(new Scene());
-    scene->m_meshes.resize(1);
-    CreateTestTriangle(scene->m_meshes.back(), device);
+    scene->m_meshes.resize(3);
+    CreateTestTriangle(scene->m_meshes[0], device, DirectX::XMFLOAT3(-0.5f, 0.0f, 0.0f), { 1.0f, 0.0f, 0.0f });
+    CreateTestTriangle(scene->m_meshes[1], device, DirectX::XMFLOAT3(0.5f, 0.0f, 0.0f), { 0.0f, 1.0f, 0.0f });
+    CreateTestTriangle(scene->m_meshes[2], device, DirectX::XMFLOAT3(0.0f, 0.5f, 0.0f), { 0.0f, 0.0f, 1.0f });
     scene->m_originFilePath = "Builtin Test Scene";
     scene->CreateAccellerationDataStructure(swapChain, device);
     return scene;
@@ -123,16 +125,38 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
                     vertexData[vertexIdx].position.x = position.x;
                     vertexData[vertexIdx].position.y = position.y;
                     vertexData[vertexIdx].position.z = position.z;
+                }
 
-                    if (!triangleShape->texcoord.empty())
+                // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
+                if (triangleShape->normal.empty())
+                {
+                    triangleShape->normal.resize(triangleShape->vertex.size());
+                    memset(triangleShape->normal.data(), 0, sizeof(pbrt::vec3f) * triangleShape->normal.size());
+
+                    for (auto triangle : triangleShape->index)
                     {
-                        vertexData[vertexIdx].color.x = triangleShape->texcoord[vertexIdx].x;
-                        vertexData[vertexIdx].color.y = triangleShape->texcoord[vertexIdx].y;
-                        vertexData[vertexIdx].color.z = 0;
-                        vertexData[vertexIdx].color.w = 0;
+                        auto v1 = triangleShape->vertex[triangle.x];
+                        auto v2 = triangleShape->vertex[triangle.y];
+                        auto v3 = triangleShape->vertex[triangle.z];
+                        auto triangleNormal = pbrt::math::cross(v1 - v3, v2 - v3);
+                        triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
+                        triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
+                        triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
                     }
-                    else
-                        memset(&vertexData[vertexIdx].color, 0, sizeof(vertexData[vertexIdx].color));
+                    for (auto& normal : triangleShape->normal)
+                        normal = pbrt::math::normalize(normal);
+                }
+
+                auto normalTransformation = inverse_transpose(instance->xfm.l);
+                for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
+                {
+                    auto normal = normalTransformation * triangleShape->normal[vertexIdx];
+                    assert(normal.x == normal.x);   // check for nan
+                    assert(normal.y == normal.y);
+                    assert(normal.z == normal.z);
+                    vertexData[vertexIdx].normal.x = normal.x;
+                    vertexData[vertexIdx].normal.y = normal.y;
+                    vertexData[vertexIdx].normal.z = normal.z;
                 }
             }
             {
