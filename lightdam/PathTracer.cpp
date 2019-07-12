@@ -64,7 +64,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Te
 {
     // Update per-frame constants.
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
-    activeCamera.ComputeCameraParams(globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
+    activeCamera.ComputeCameraParams((float)renderTarget.GetWidth() / renderTarget.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
     globalConstants->CameraPosition = activeCamera.GetPosition();
 
     // Setup global resources.

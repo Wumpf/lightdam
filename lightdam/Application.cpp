@@ -30,15 +30,14 @@ Application::Application(int argc, char** argv)
     m_window->GetSize(windowWidth, windowHeight);
     m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
 
+    m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
+    m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
+    m_activeCamera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+
     if (argc > 1)
         LoadScene(argv[1]);
     else
         LoadScene("");
-
-    m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
-    m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
-    m_activeCamera.SetUp(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
-    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
 
     m_window->AddProcHandler([this](HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         if (message == WM_SIZE)
@@ -102,6 +101,8 @@ void Application::LoadScene(const std::string& pbrtFileName)
     if (!newScene)
         return;
     m_scene = std::move(newScene);
+    if (!m_scene->GetCameras().empty())
+        m_activeCamera = m_scene->GetCameras().front();
     m_pathTracer->SetScene(*m_scene, m_device.Get());
 }
 
@@ -173,7 +174,6 @@ void Application::OnWindowResize()
     m_window->GetSize(windowWidth, windowHeight);
     m_swapChain->Resize(windowWidth, windowHeight);
     m_pathTracer->ResizeOutput(windowWidth, windowHeight);
-    m_activeCamera.SetAspectRatio((float)windowWidth / windowHeight);
 }
 
 void Application::RenderFrame()

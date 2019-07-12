@@ -78,7 +78,7 @@ void Gui::SetupUI(Application& application)
     }
     if (ImGui::CollapsingHeader("Camera"))
     {
-        Camera& camera = application.GetActiveCamera();
+        ControllableCamera& camera = application.GetActiveCamera();
 
         auto pos = camera.GetPosition();
         if (ImGui::DragFloat3("Position", pos.m128_f32, 0.1f, -100.0f, 100.f))
@@ -87,6 +87,10 @@ void Gui::SetupUI(Application& application)
         auto dir = camera.GetDirection();
         if (ImGui::DragFloat3("Direction", dir.m128_f32, 0.1f, -1.0f, 1.0f))
             camera.SetDirection(DirectX::XMVector3Normalize(dir));
+
+        auto up = camera.GetUp();
+        if (ImGui::DragFloat3("Up", up.m128_f32, 0.1f, -1.0f, 1.0f))
+            camera.SetUp(DirectX::XMVector3Normalize(up));
 
         float fov = camera.GetHFovDegree();
         if (ImGui::SliderAngle("vFOV", &fov))

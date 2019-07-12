@@ -37,6 +37,16 @@ static std::wstring Utf8toUtf16(const std::string& str)
     return buffer;
 }
 
+static DirectX::XMFLOAT3 PbrtVec3ToXMFloat3(pbrt::vec3f v)
+{
+    return DirectX::XMFLOAT3{ v.x, v.y, v.z };
+}
+
+static DirectX::XMVECTOR PbrtVec3ToXMVector(pbrt::vec3f v)
+{
+    return DirectX::XMLoadFloat3(&PbrtVec3ToXMFloat3(v));
+}
+
 static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX::XMFLOAT3 offset, DirectX::XMFLOAT3 normal)
 {
     // Define the geometry for a triangle.
@@ -95,9 +105,18 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         return nullptr;
     pbrtScene->makeSingleLevel();
 
-
     auto scene = std::unique_ptr<Scene>(new Scene());
     scene->m_originFilePath = pbrtFilePath;
+
+    for (const auto& pbrtCamera : pbrtScene->cameras)
+    {
+        scene->m_cameras.emplace_back();
+        auto& camera = scene->m_cameras.back();
+        camera.SetPosition(PbrtVec3ToXMVector(pbrtCamera->frame.p));
+        camera.SetUp(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vy)));
+        camera.SetDirection(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vz)));
+        camera.SetVFovDegree(pbrtCamera->fov);
+    }
 
     for (const pbrt::Instance::SP& instance : pbrtScene->world->instances)
     {
@@ -151,12 +170,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
                 for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
                 {
                     auto normal = normalTransformation * triangleShape->normal[vertexIdx];
-                    assert(normal.x == normal.x);   // check for nan
-                    assert(normal.y == normal.y);
-                    assert(normal.z == normal.z);
-                    vertexData[vertexIdx].normal.x = normal.x;
-                    vertexData[vertexIdx].normal.y = normal.y;
-                    vertexData[vertexIdx].normal.z = normal.z;
+                    vertexData[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
                 }
             }
             {

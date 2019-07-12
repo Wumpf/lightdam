@@ -17,8 +17,8 @@ public:
     void Run();
     void LoadScene(const std::string& pbrtFileName);
 
-    const class Scene& GetScene() const   { return *m_scene; }
-    class Camera& GetActiveCamera()       { return m_activeCamera; }
+    const class Scene& GetScene() const             { return *m_scene; }
+    class ControllableCamera& GetActiveCamera()     { return m_activeCamera; }
 
 private:
     void CreateDeviceAndSwapChain();
@@ -35,7 +35,7 @@ private:
     std::unique_ptr<class Gui> m_gui;
     std::unique_ptr<class Scene> m_scene;
     std::unique_ptr<class PathTracer> m_pathTracer;
-    Camera m_activeCamera;
+    ControllableCamera m_activeCamera;
 
     ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
     ComPtr<struct ID3D12GraphicsCommandList4> m_commandList;

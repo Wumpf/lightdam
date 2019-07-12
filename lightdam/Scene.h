@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dx12/GraphicsResource.h"
+#include "Camera.h"
 #include <memory>
 #include <vector>
 #include <string>
@@ -30,6 +31,8 @@ public:
     const std::vector<Mesh>& GetMeshes() const                  { return m_meshes; }
     const TopLevelAS& GetTopLevelAccellerationStructure() const { return *m_tlas; }
 
+    const std::vector<Camera>& GetCameras() const { return m_cameras; }
+
     const std::string& GetSceneFilePath() const { return m_originFilePath; }
 
 private:
@@ -44,5 +47,6 @@ private:
     std::vector<std::unique_ptr<class BottomLevelAS>> m_blas;
 
     std::vector<Mesh> m_meshes;
+    std::vector<Camera> m_cameras;
 };
 
