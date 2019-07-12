@@ -82,10 +82,11 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Te
     m_shaderBindingTable.DispatchRays(commandList, m_outputResource.GetWidth(), m_outputResource.GetHeight());
 
     // Copy raytracing output buffer to backbuffer.
-    transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-    commandList->ResourceBarrier(1, &transition);
-    transition = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
-    commandList->ResourceBarrier(1, &transition);
+    CD3DX12_RESOURCE_BARRIER transitions[] = {
+        CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE),
+        CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST)
+    };
+    commandList->ResourceBarrier(2, transitions);
     commandList->CopyResource(renderTarget.Get(), m_outputResource.Get());
 
     // Go back to render target state.
@@ -234,7 +235,7 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
         {
             auto localRootSignature_hit = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
             localRootSignature_hit->SetRootSignature(m_hitSignature.Get());
-            auto localRootSignatureAssociation_hit= stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            auto localRootSignatureAssociation_hit = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
             localRootSignatureAssociation_hit->SetSubobjectToAssociate(*localRootSignature_hit);
             localRootSignatureAssociation_hit->AddExport(L"HitGroup");
         }

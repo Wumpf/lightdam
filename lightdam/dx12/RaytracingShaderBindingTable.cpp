@@ -37,7 +37,7 @@ RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12Sta
 
     // Copy data to table.
     {
-        auto tableData = ScopedResourceMap(table.m_table);
+        ScopedResourceMap tableData(table.m_table);
         auto currentRecord = (uint8_t*)tableData.Get();
 
         m_rayGenProgramEntry.CopyData(raytracingPipelineProperties, currentRecord);
@@ -88,5 +88,5 @@ void RaytracingBindingTableGenerator::Entry::CopyData(ID3D12StateObjectPropertie
         throw errMsg;// std::logic_error(std::string(errMsg.begin(), errMsg.end())); // TODO
     }
     memcpy(destRecords, id, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
-    memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, inputData.data(), inputData.size() * 8);
+    memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, inputData.data(), inputData.size() * sizeof(uint64_t));
 }
