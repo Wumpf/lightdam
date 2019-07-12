@@ -75,6 +75,11 @@ void Gui::SetupUI(Application& application)
         uint64_t totalTriangleCount = 0;
         for (const auto& mesh : scene.GetMeshes()) totalTriangleCount += mesh.indexCount / 3;
         ImGui::LabelText("Total Triangle Count", "%i", totalTriangleCount);
+        for (int i=0; i<scene.GetCameras().size(); ++i)
+        {
+            if (ImGui::Button((std::string("Reset Camera to Scene Camera ") + std::to_string(i)).c_str()))
+                application.GetActiveCamera() = scene.GetCameras()[i];
+        }
     }
     if (ImGui::CollapsingHeader("Camera"))
     {
