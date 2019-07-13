@@ -24,6 +24,8 @@ class RaytracingBindingTableGenerator
 public:
     RaytracingShaderBindingTable Generate(ID3D12StateObjectProperties* raytracingPipelineProperties, ID3D12Device5* device);
 
+    void Clear();
+
     void SetRayGenProgram(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)   { m_rayGenProgramEntry = { entryPoint, inputData }; };
     void AddMissProgram(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData)     { m_subtableMissEntries.AddEntry(entryPoint, inputData); }
     void AddHitGroupProgram(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData) { m_subtableHitGroupEntries.AddEntry(entryPoint, inputData); }
@@ -31,6 +33,8 @@ public:
 private:
     struct Entry
     {
+        void Clear() { programEntryPoint.clear(); inputData.clear(); }
+
         uint64_t GetSize() const { return GetSize(inputData.size()); }
         static uint64_t GetSize(size_t numParameters);
 
@@ -43,6 +47,8 @@ private:
 
     struct Group
     {
+        void Clear() { entries.clear(); maxNumParameters = 0; }
+
         void AddEntry(const std::wstring& entryPoint, const std::vector<uint64_t>& inputData);
         void CopyData(ID3D12StateObjectProperties* raytracingPipelineProperties, uint8_t*& destRecords) const;
 

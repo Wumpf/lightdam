@@ -15,8 +15,9 @@ public:
     PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
     ~PathTracer();
 
-    void ResizeOutput(uint32_t outputWidth, uint32_t outputHeight);
-    void SetScene(Scene& scene, ID3D12Device5* device);
+    void ResizeOutput(uint32_t outputWidth, uint32_t outputHeight) { CreateOutputBuffer(outputWidth, outputHeight); }
+    void ReloadShaders();
+    void SetScene(Scene& scene);
 
     void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const class Camera& activeCamera, int frameIndex);
 
@@ -24,20 +25,26 @@ public:
     // todo: resize
 
 private:
-    void LoadShaders();
-    void CreateRootSignatures(ID3D12Device5* device);
-    void CreateRaytracingPipelineObject(ID3D12Device5* device);
-    void CreateShaderBindingTable(Scene& scene, ID3D12Device5* device);
-    void CreateDescriptorHeap(ID3D12Device5* device);
-    void CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
+    bool LoadShaders(bool throwOnFailure);
+    void CreateRootSignatures();
+    void CreateRaytracingPipelineObject();
+    void CreateShaderBindingTable(Scene& scene);
+    void CreateDescriptorHeap();
+    void CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight);
+
+    ComPtr<ID3D12Device5> m_device;
 
     TextureResource m_outputResource;
     ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
     DynamicConstantBuffer m_frameConstantBuffer;
 
-    Shader m_rayGenLibrary;
-    Shader m_hitLibrary;
-    Shader m_missLibrary;
+    struct PathTracerShaders
+    {
+        Shader rayGenLibrary;
+        Shader hitLibrary;
+        Shader missLibrary;
+    };
+    PathTracerShaders m_shaders;
 
     ComPtr<ID3D12RootSignature> m_globalRootSignature;
     ComPtr<ID3D12RootSignature> m_rayGenSignature;
@@ -47,7 +54,9 @@ private:
     ComPtr<ID3D12StateObject> m_raytracingPipelineObject;
     ComPtr<ID3D12StateObjectProperties> m_raytracingPipelineObjectProperties;
 
+    RaytracingBindingTableGenerator m_bindingTableGenerator;
     RaytracingShaderBindingTable m_shaderBindingTable;
+    
 
     const uint32_t m_descriptorHeapIncrementSize;
 };

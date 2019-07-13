@@ -4,6 +4,7 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <iostream>
 
 #include <DirectXMath.h>
 
@@ -26,30 +27,33 @@ struct GlobalConstants
 };
 
 PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
-    : m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
+    : m_device(device)
+    , m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
     , m_frameConstantBuffer(L"FrameConstants", device, sizeof(GlobalConstants))
 {
-    CreateRootSignatures(device);
-    LoadShaders();
-    CreateRaytracingPipelineObject(device);
-    CreateDescriptorHeap(device);
-    CreateOutputBuffer(device, outputWidth, outputHeight);
+    LoadShaders(true);
+    CreateRootSignatures();
+    CreateRaytracingPipelineObject();
+    CreateDescriptorHeap();
+    CreateOutputBuffer(outputWidth, outputHeight);
 }
 
 PathTracer::~PathTracer()
 {
 }
 
-void PathTracer::ResizeOutput(uint32_t outputWidth, uint32_t outputHeight)
+void PathTracer::ReloadShaders()
 {
-    ComPtr<ID3D12Device5> device;
-    m_outputResource->GetDevice(IID_PPV_ARGS(&device));
-    CreateOutputBuffer(device.Get(), outputWidth, outputHeight);
+    if (LoadShaders(false))
+    {
+        CreateRaytracingPipelineObject();
+        m_shaderBindingTable = m_bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), m_device.Get());
+    }
 }
 
-void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
+void PathTracer::SetScene(Scene& scene)
 {
-    CreateShaderBindingTable(scene, device);
+    CreateShaderBindingTable(scene);
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize);
     D3D12_SHADER_RESOURCE_VIEW_DESC tlasView = {};
@@ -57,7 +61,7 @@ void PathTracer::SetScene(Scene& scene, ID3D12Device5* device)
     tlasView.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
     tlasView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     tlasView.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
-    device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
+    m_device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
 }
 
 void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const Camera& activeCamera, int frameIndex)
@@ -94,44 +98,58 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Te
     commandList->ResourceBarrier(1, &transition);
 }
 
-void PathTracer::CreateShaderBindingTable(Scene& scene, ID3D12Device5* device)
+void PathTracer::CreateShaderBindingTable(Scene& scene)
 {
-    RaytracingBindingTableGenerator bindingTableGenerator;
-
+    m_bindingTableGenerator.Clear();
+    
     D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_rayGenDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
     auto heapPointer = reinterpret_cast<uint64_t*>(srvUavHeapHandle.ptr);
-    bindingTableGenerator.SetRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
-    bindingTableGenerator.AddMissProgram(L"Miss", {});
+    m_bindingTableGenerator.SetRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
+    m_bindingTableGenerator.AddMissProgram(L"Miss", {});
     for (const auto& mesh : scene.GetMeshes())
-        bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress(), mesh.indexBuffer->GetGPUVirtualAddress() });
+        m_bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress(), mesh.indexBuffer->GetGPUVirtualAddress() });
 
-    m_shaderBindingTable = bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), device);
+    m_shaderBindingTable = m_bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), m_device.Get());
 }
 
-void PathTracer::CreateDescriptorHeap(ID3D12Device5* device)
+void PathTracer::CreateDescriptorHeap()
 {
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     descriptorHeapDesc.NumDescriptors = 2;
-    ThrowIfFailed(device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_rayGenDescriptorHeap)));
+    ThrowIfFailed(m_device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_rayGenDescriptorHeap)));
 }
 
-void PathTracer::CreateOutputBuffer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
+void PathTracer::CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight)
 {
-    m_outputResource = TextureResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, device);
+    m_outputResource = TextureResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1,
+                                                        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, m_device.Get());
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, descriptorHandle);
+    m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, descriptorHandle);
 }
 
-void PathTracer::LoadShaders()
+bool PathTracer::LoadShaders(bool throwOnFailure)
 {
-    m_rayGenLibrary = Shader::CompileFromFile(L"RayGen.hlsl");
-    m_missLibrary = Shader::CompileFromFile(L"Miss.hlsl");
-    m_hitLibrary = Shader::CompileFromFile(L"Hit.hlsl");
+    // Only if loading every single shader works, we go store them.
+    PathTracerShaders newShaders;
+    try
+    {
+        newShaders.rayGenLibrary = Shader::CompileFromFile(L"shaders/RayGen.hlsl");
+        newShaders.missLibrary = Shader::CompileFromFile(L"shaders/Miss.hlsl");
+        newShaders.hitLibrary = Shader::CompileFromFile(L"shaders/Hit.hlsl");
+    }
+    catch (const std::runtime_error& exception)
+    {
+        if (throwOnFailure) throw;
+        std::cout << exception.what() << std::endl;
+        return false;
+    }
+    m_shaders = std::move(newShaders);
+    return true;
 }
 
 static ComPtr<ID3D12RootSignature> CreateRootSignature(const wchar_t* name, ID3D12Device5* device, const CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC& desc)
@@ -144,14 +162,14 @@ static ComPtr<ID3D12RootSignature> CreateRootSignature(const wchar_t* name, ID3D
     return signature;
 }
 
-void PathTracer::CreateRootSignatures(ID3D12Device5* device)
+void PathTracer::CreateRootSignatures()
 {
     // Global root signature
     {
         CD3DX12_ROOT_PARAMETER1 params[1] = {};
         params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params);
-        m_globalRootSignature = CreateRootSignature(L"PathTracerGlobalRootSig", device, rootSignatureDesc);
+        m_globalRootSignature = CreateRootSignature(L"PathTracerGlobalRootSig", m_device.Get(), rootSignatureDesc);
     }
     // RayGen local root signature
     {
@@ -162,12 +180,12 @@ void PathTracer::CreateRootSignatures(ID3D12Device5* device)
         };
         CD3DX12_ROOT_PARAMETER1 param; param.InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(1, &param, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_rayGenSignature = CreateRootSignature(L"RayGen", device, rootSignatureDesc);
+        m_rayGenSignature = CreateRootSignature(L"RayGen", m_device.Get(), rootSignatureDesc);
     }
     // Miss local root signature
     {
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(0, (D3D12_ROOT_PARAMETER1*)nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_missSignature = CreateRootSignature(L"Miss", device, rootSignatureDesc);
+        m_missSignature = CreateRootSignature(L"Miss", m_device.Get(), rootSignatureDesc);
     }
     // Hit local root signature.
     {
@@ -175,26 +193,26 @@ void PathTracer::CreateRootSignatures(ID3D12Device5* device)
         params[0].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Vertex buffer in t0,space0
         params[1].InitAsShaderResourceView(0, 1, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Index buffer in t0,space1
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(sizeof(params) / sizeof(params[0]), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_hitSignature = CreateRootSignature(L"Hit", device, rootSignatureDesc);
+        m_hitSignature = CreateRootSignature(L"Hit", m_device.Get(), rootSignatureDesc);
     }
 }
 
-void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
+void PathTracer::CreateRaytracingPipelineObject()
 {
     CD3DX12_STATE_OBJECT_DESC stateObjectDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
 
     // Used libraries.
     {
         auto rayGenLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        rayGenLib->SetDXILLibrary(&m_rayGenLibrary.GetByteCode());
+        rayGenLib->SetDXILLibrary(&m_shaders.rayGenLibrary.GetByteCode());
         rayGenLib->DefineExport(L"RayGen");
 
         auto missLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        missLib->SetDXILLibrary(&m_missLibrary.GetByteCode());
+        missLib->SetDXILLibrary(&m_shaders.missLibrary.GetByteCode());
         missLib->DefineExport(L"Miss");
 
         auto closestHitLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        closestHitLib->SetDXILLibrary(&m_hitLibrary.GetByteCode());
+        closestHitLib->SetDXILLibrary(&m_shaders.hitLibrary.GetByteCode());
         closestHitLib->DefineExport(L"ClosestHit");
     }
     // Shader config
@@ -247,6 +265,6 @@ void PathTracer::CreateRaytracingPipelineObject(ID3D12Device5* device)
         globalRootSignature->SetRootSignature(m_globalRootSignature.Get());
     }
 
-    ThrowIfFailed(device->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&m_raytracingPipelineObject)));
+    ThrowIfFailed(m_device->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&m_raytracingPipelineObject)));
     ThrowIfFailed(m_raytracingPipelineObject->QueryInterface(IID_PPV_ARGS(&m_raytracingPipelineObjectProperties)));
 }

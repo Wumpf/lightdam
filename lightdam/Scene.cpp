@@ -3,6 +3,7 @@
 #include "dx12/BottomLevelAS.h"
 #include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
+#include "StringConversion.h"
 
 #include "../external/d3dx12.h"
 #include "pbrtParser/Scene.h"
@@ -15,27 +16,6 @@ struct Vertex
     DirectX::XMFLOAT3 position;
     DirectX::XMFLOAT3 normal;
 };
-
-// todo: move
-static std::wstring Utf8toUtf16(const std::string& str)
-{
-    // https://stackoverflow.com/a/26914562
-
-    if (str.empty())
-        return L"";
-
-    size_t charsNeeded = ::MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), NULL, 0);
-    if (charsNeeded == 0)
-        throw std::runtime_error("Failed converting UTF-8 string to UTF-16");
-
-    std::wstring buffer;
-    buffer.resize(charsNeeded);
-    int charsConverted = ::MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &buffer[0], (int)buffer.size());
-    if (charsConverted == 0)
-        throw std::runtime_error("Failed converting UTF-8 string to UTF-16");
-
-    return buffer;
-}
 
 static DirectX::XMFLOAT3 PbrtVec3ToXMFloat3(pbrt::vec3f v)
 {

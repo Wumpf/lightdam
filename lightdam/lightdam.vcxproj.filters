@@ -48,6 +48,8 @@
     <ClCompile Include="..\external\imgui\imgui_demo.cpp">
       <Filter>external\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="DirectoryWatcher.cpp" />
+    <ClCompile Include="StringConversion.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -108,6 +110,8 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="..\external\d3dx12.h" />
     <ClInclude Include="..\external\dxcapi.use.h" />
+    <ClInclude Include="DirectoryWatcher.h" />
+    <ClInclude Include="StringConversion.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">

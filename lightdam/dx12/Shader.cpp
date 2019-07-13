@@ -1,5 +1,6 @@
 #include "Shader.h"
 #include "../ErrorHandling.h"
+#include "../StringConversion.h"
 #include <Windows.h>
 #include "../../external/dxcapi.use.h"
 
@@ -44,7 +45,7 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
     std::ifstream shaderFile(filename);
     if (shaderFile.good() == false)
     {
-        throw std::logic_error("Cannot open shader file");
+        throw std::runtime_error("Cannot open shader file \"" + Utf16toUtf8(filename) + "\"");
     }
     std::stringstream strStream;
     strStream << shaderFile.rdbuf();
@@ -67,7 +68,7 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
         HRESULT hr = result->GetErrorBuffer(&pError);
         if (FAILED(hr))
         {
-            throw std::logic_error("Failed to get shader compiler error");
+            throw std::runtime_error("Failed to get shader compiler error for \"" + Utf16toUtf8(filename) + "\"");
         }
 
         // Convert error blob to a string
@@ -75,11 +76,8 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
         memcpy(infoLog.data(), pError->GetBufferPointer(), pError->GetBufferSize());
         infoLog[pError->GetBufferSize()] = 0;
 
-        std::string errorMsg = "Shader Compiler Error:\n";
-        errorMsg.append(infoLog.data());
-
-        MessageBoxA(nullptr, errorMsg.c_str(), "Error!", MB_OK);
-        throw std::logic_error("Failed compile shader");
+        std::string errorMsg = "Shader Compiler Error for \"" + Utf16toUtf8(filename) + "\":\n" + infoLog.data();
+        throw std::runtime_error(errorMsg);
     }
 
     Shader shader;

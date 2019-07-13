@@ -20,6 +20,7 @@
 
 Application::Application(int argc, char** argv)
     : m_window(new Window(L"LightDam", L"LightDam", 1280, 768))
+    , m_shaderDirectoryWatcher(L"shaders")
 {
     CreateDeviceAndSwapChain();
     CreateFrameResources();
@@ -82,6 +83,12 @@ void Application::Run()
     {
         auto startTime = std::chrono::high_resolution_clock::now();
 
+        if (m_shaderDirectoryWatcher.HasDirectoryFileChangesSinceLastCheck())
+        {
+            m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+            m_pathTracer->ReloadShaders();
+        }
+
         m_swapChain->BeginFrame();
         m_window->ProcessWindowMessages();
         m_activeCamera.Update(lastFrameTime.count());
@@ -103,7 +110,7 @@ void Application::LoadScene(const std::string& pbrtFileName)
     m_scene = std::move(newScene);
     if (!m_scene->GetCameras().empty())
         m_activeCamera = m_scene->GetCameras().front();
-    m_pathTracer->SetScene(*m_scene, m_device.Get());
+    m_pathTracer->SetScene(*m_scene);
 }
 
 void Application::CreateDeviceAndSwapChain()

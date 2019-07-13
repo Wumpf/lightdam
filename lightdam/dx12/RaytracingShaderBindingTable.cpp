@@ -68,6 +68,13 @@ RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12Sta
     return table;
 }
 
+void RaytracingBindingTableGenerator::Clear()
+{
+    m_rayGenProgramEntry.Clear();
+    m_subtableMissEntries.Clear();
+    m_subtableHitGroupEntries.Clear();
+}
+
 void RaytracingBindingTableGenerator::Group::AddEntry(const std::wstring & entryPoint, const std::vector<uint64_t>& inputData)
 {
     entries.push_back(Entry{ entryPoint, inputData });

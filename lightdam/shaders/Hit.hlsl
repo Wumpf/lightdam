@@ -19,7 +19,7 @@ export void ClosestHit(inout HitInfo payload, Attributes attrib)
     uint vertexIdx2 = IndexBuffer[primitiveIdx + 2];
     float3 normal = normalize(BarycentricLerp(VertexBuffer[vertexIdx0].normal, VertexBuffer[vertexIdx1].normal, VertexBuffer[vertexIdx2].normal, barycentrics));
 
-    float light = saturate(dot(normal, normalize(float3(0.0f, 1.0f, 1.0f))));
+    float light = saturate(dot(normal, normalize(float3(0.0f, -1.0f, 1.0f))));
     payload.colorAndDistance = float4(light, light, light, RayTCurrent());
     //payload.colorAndDistance = float4(normal * 0.5f + 0.5f, RayTCurrent());
 }

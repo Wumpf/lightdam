@@ -2,6 +2,7 @@
 
 #include "dx12/SwapChain.h"
 #include "Camera.h"
+#include "DirectoryWatcher.h"
 #include <memory>
 #include <string>
 
@@ -36,6 +37,7 @@ private:
     std::unique_ptr<class Scene> m_scene;
     std::unique_ptr<class PathTracer> m_pathTracer;
     ControllableCamera m_activeCamera;
+    DirectoryWatcher m_shaderDirectoryWatcher;
 
     ComPtr<struct ID3D12CommandAllocator>   m_commandAllocators[SwapChain::MaxFramesInFlight];
     ComPtr<struct ID3D12GraphicsCommandList4> m_commandList;
