@@ -25,7 +25,7 @@ void Camera::ComputeCameraParams(float aspectRatio, XMVECTOR& cameraU, XMVECTOR&
     cameraU = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(cameraW, m_up));
     cameraV = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(cameraW, cameraU));
 
-    float f = (float)tan(m_vFovDegree / 2.0 * (M_PI / 180.0));
+    float f = (float)tan(m_vFovRad * 0.5f);
     cameraU *= f * aspectRatio;
     cameraV *= f;
 }

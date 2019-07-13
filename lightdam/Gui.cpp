@@ -97,9 +97,9 @@ void Gui::SetupUI(Application& application)
         if (ImGui::DragFloat3("Up", up.m128_f32, 0.1f, -1.0f, 1.0f))
             camera.SetUp(DirectX::XMVector3Normalize(up));
 
-        float fov = camera.GetHFovDegree();
-        if (ImGui::SliderAngle("vFOV", &fov))
-            camera.SetVFovDegree(fov);
+        float fovRad = camera.GetHFovRad();
+        if (ImGui::SliderAngle("vFOV", &fovRad, 1.0f, 179.0f))
+            camera.SetVFovRad(fovRad);
 
         float speed = camera.GetMoveSpeed();
         if (ImGui::DragFloat("Speed", &speed, 1.0f, 1.0f, 1000.f))
