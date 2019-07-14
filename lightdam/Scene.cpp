@@ -8,6 +8,8 @@
 #include "../external/d3dx12.h"
 #include "pbrtParser/Scene.h"
 
+#include <fstream>
+
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
@@ -69,16 +71,91 @@ std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5*
     return scene;
 }
 
+static Scene::Mesh LoadPbrtMesh(const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device)
+{
+    // TODO: Don't use upload heaps
+    // todo: Handle material & textures
+     //shape->material
+    Scene::Mesh mesh;
+    mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Vertex) * triangleShape->vertex.size(), device);
+    mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
+    uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
+    mesh.indexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
+    mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
+    {
+        ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
+        Vertex* vertexData = (Vertex*)vertexBufferData.Get();
+        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
+        {
+            auto position = instance->xfm * triangleShape->vertex[vertexIdx];
+            vertexData[vertexIdx].position.x = position.x;
+            vertexData[vertexIdx].position.y = position.y;
+            vertexData[vertexIdx].position.z = position.z;
+        }
+
+        // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
+        if (triangleShape->normal.empty())
+        {
+            triangleShape->normal.resize(triangleShape->vertex.size());
+            memset(triangleShape->normal.data(), 0, sizeof(pbrt::vec3f) * triangleShape->normal.size());
+
+            for (auto triangle : triangleShape->index)
+            {
+                auto v1 = triangleShape->vertex[triangle.x];
+                auto v2 = triangleShape->vertex[triangle.y];
+                auto v3 = triangleShape->vertex[triangle.z];
+                auto triangleNormal = pbrt::math::cross(v1 - v3, v2 - v3);
+                triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
+                triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
+                triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
+            }
+            for (auto& normal : triangleShape->normal)
+                normal = pbrt::math::normalize(normal);
+        }
+
+        auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
+        for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
+        {
+            auto normal = normalTransformation * triangleShape->normal[vertexIdx];
+            vertexData[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
+        }
+    }
+    {
+        ScopedResourceMap indexBufferData(mesh.indexBuffer);
+        memcpy(indexBufferData.Get(), triangleShape->index.data(), indexbufferSize);
+    }
+
+    return mesh;
+}
+
 std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, SwapChain& swapChain, ID3D12Device5* device)
 {
     pbrt::Scene::SP pbrtScene;
-    try
+
+    std::string pbfFilePath = pbrtFilePath.substr(0, pbrtFilePath.find_last_of('.')) + ".pbf";
+    bool pbfFileExists = std::ifstream(pbfFilePath.c_str()).good();
+
+    if (pbfFileExists)
     {
-        pbrtScene = pbrt::importPBRT(pbrtFilePath);
+        try
+        {
+            pbrtScene = pbrt::Scene::loadFrom(pbfFilePath);
+        }
+        catch (std::exception& exception)
+        {
+            std::cout << "Failed to load scene from pbf: " << exception.what() << std::endl;
+        }
     }
-    catch (std::exception& exception)
+    else
     {
-        std::cout << "Failed to load scene: " << exception.what() << std::endl;
+        try
+        {
+            pbrtScene = pbrt::importPBRT(pbrtFilePath);
+        }
+        catch (std::exception& exception)
+        {
+            std::cout << "Failed to load scene from pbrt: " << exception.what() << std::endl;
+        }
     }
 
     if (!pbrtScene)
@@ -102,64 +179,19 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
     {
         for (const pbrt::Shape::SP& shape : instance->object->shapes)
         {
-            // todo: Handle material & textures
-            //shape->material
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
-            if (!triangleShape)
-                continue;
-
-            // TODO: Don't use upload heaps
-            Mesh mesh;
-            mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Vertex) * triangleShape->vertex.size(), device);
-            mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
-            uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
-            mesh.indexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
-            mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
-            {
-                ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
-                Vertex* vertexData = (Vertex*)vertexBufferData.Get();
-                for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
-                {
-                    auto position = instance->xfm * triangleShape->vertex[vertexIdx];
-                    vertexData[vertexIdx].position.x = position.x;
-                    vertexData[vertexIdx].position.y = position.y;
-                    vertexData[vertexIdx].position.z = position.z;
-                }
-
-                // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
-                if (triangleShape->normal.empty())
-                {
-                    triangleShape->normal.resize(triangleShape->vertex.size());
-                    memset(triangleShape->normal.data(), 0, sizeof(pbrt::vec3f) * triangleShape->normal.size());
-
-                    for (auto triangle : triangleShape->index)
-                    {
-                        auto v1 = triangleShape->vertex[triangle.x];
-                        auto v2 = triangleShape->vertex[triangle.y];
-                        auto v3 = triangleShape->vertex[triangle.z];
-                        auto triangleNormal = pbrt::math::cross(v1 - v3, v2 - v3);
-                        triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
-                        triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
-                        triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
-                    }
-                    for (auto& normal : triangleShape->normal)
-                        normal = pbrt::math::normalize(normal);
-                }
-
-                auto normalTransformation = inverse_transpose(instance->xfm.l);
-                for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
-                {
-                    auto normal = normalTransformation * triangleShape->normal[vertexIdx];
-                    vertexData[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
-                }
-            }
-            {
-                ScopedResourceMap indexBufferData(mesh.indexBuffer);
-                memcpy(indexBufferData.Get(), triangleShape->index.data(), indexbufferSize);
-            }
-            scene->m_meshes.push_back(std::move(mesh));
+            if (triangleShape)
+                scene->m_meshes.push_back(LoadPbrtMesh(triangleShape, instance, device));
+        }
+        for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
+        {
+            // todo.
         }
     }
+
+    if (!pbfFileExists)
+        pbrtScene->saveTo(pbfFilePath);
+
 
     // todo: be clever about BLAS/TLAS instances
 
