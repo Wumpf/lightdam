@@ -172,7 +172,8 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         camera.SetPosition(PbrtVec3ToXMVector(pbrtCamera->frame.p));
         camera.SetUp(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vy)));
         camera.SetDirection(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vz)));
-        camera.SetVFovRad(pbrtCamera->fov * (M_PI / 180.0f));
+        camera.SetVFovRad(pbrtCamera->fov * ((float)M_PI / 180.0f));
+        camera.SnapUpToAxis(); // Makes camera easier to control
     }
 
     for (const pbrt::Instance::SP& instance : pbrtScene->world->instances)

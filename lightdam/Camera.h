@@ -15,6 +15,8 @@ public:
     void SetDirection(DirectX::FXMVECTOR direction) { m_direction = direction; } // Assumes normalized
     void SetUp(DirectX::FXMVECTOR up)               { m_up = up; } // Assumes normalized
 
+    void SnapUpToAxis();
+
     DirectX::FXMVECTOR GetPosition() const   { return m_position; }
     DirectX::FXMVECTOR GetDirection() const  { return m_direction; }
     DirectX::FXMVECTOR GetUp() const         { return m_up; }

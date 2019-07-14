@@ -19,6 +19,25 @@ void Camera::operator = (const Camera& camera)
     memcpy(this, &camera, sizeof(Camera));
 }
 
+void Camera::SnapUpToAxis()
+{
+    static constexpr XMFLOAT3 xpos(1, 0, 0);
+    static constexpr XMFLOAT3 xneg(-1, 0, 0);
+    static constexpr XMFLOAT3 ypos(0, 1, 0);
+    static constexpr XMFLOAT3 yneg(0, -1, 0);
+    static constexpr XMFLOAT3 zpos(0,0, 1);
+    static constexpr XMFLOAT3 zneg(0,0, -1);
+
+    XMFLOAT3 up;
+    DirectX::XMStoreFloat3(&up, m_up);
+    if (fabs(up.x) > fabs(up.y) && fabs(up.x) > fabs(up.z))
+        m_up = XMLoadFloat3(up.x > 0 ? &xpos : &xneg);
+    else if (fabs(up.y) > fabs(up.x) && fabs(up.y) > fabs(up.z))
+        m_up = XMLoadFloat3(up.y > 0 ? &ypos : &yneg);
+    else if (fabs(up.z) > fabs(up.y) && fabs(up.z) > fabs(up.y))
+        m_up = XMLoadFloat3(up.z > 0 ? &zpos : &zneg);
+}
+
 void Camera::ComputeCameraParams(float aspectRatio, XMVECTOR& cameraU, XMVECTOR& cameraV, XMVECTOR& cameraW) const
 {
     cameraW = m_direction;
@@ -62,7 +81,7 @@ void ControllableCamera::Update(float secondsSinceLastUpdate)
         auto cameraLeft = XMVector3Cross(m_direction, m_up);
         auto rotateUpDown = XMQuaternionRotationAxis(cameraLeft, rotY);
         auto rotateLeftRight = XMQuaternionRotationAxis(m_up, rotX);
-        m_up = XMVector3Rotate(m_up, rotateUpDown);
+        //m_up = XMVector3Rotate(m_up, rotateUpDown);
         m_direction = XMVector3Rotate(m_direction, rotateUpDown);
         m_direction = XMVector3Rotate(m_direction, rotateLeftRight);
 
