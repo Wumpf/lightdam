@@ -10,17 +10,19 @@
 class DynamicConstantBuffer
 {
 public:
-    DynamicConstantBuffer(const wchar_t* name, ID3D12Device5* device, uint64_t size, int numFrames = SwapChain::MaxFramesInFlight);
+    DynamicConstantBuffer(const wchar_t* name, ID3D12Device5* device, uint64_t size, uint32_t numBuffers = SwapChain::MaxFramesInFlight);
     ~DynamicConstantBuffer();
 
-    uint8_t* GetData(int frameIndex)                                { return ((uint8_t*)m_mappedData) + frameIndex * m_perBufferSize; }
+    uint8_t* GetData(uint32_t bufferIndex)  { assert(bufferIndex < m_numBuffers); return ((uint8_t*)m_mappedData) + bufferIndex * m_perBufferSize; }
     template<typename T>
-    T* GetData(int frameIndex)                                      { assert(sizeof(T) <= m_perBufferSize); return (T*)GetData(frameIndex); }
+    T* GetData(uint32_t bufferIndex)        { assert(sizeof(T) <= m_perBufferSize && bufferIndex < m_numBuffers); return (T*)GetData(bufferIndex); }
 
-    D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress(int frameIndex) const   { return m_gpuAddress + frameIndex * m_perBufferSize; }
+    D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress(uint32_t bufferIndex) const { assert(bufferIndex < m_numBuffers); return m_gpuAddress + bufferIndex * m_perBufferSize; }
+    uint32_t GetNumBuffers() const { return m_numBuffers; }
 
 private:
-    uint64_t m_perBufferSize;
+    const uint64_t m_perBufferSize;
+    const uint32_t m_numBuffers;
     GraphicsResource m_uploadHeap;
     void* m_mappedData;
     D3D12_GPU_VIRTUAL_ADDRESS m_gpuAddress;

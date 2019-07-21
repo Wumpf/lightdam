@@ -25,12 +25,20 @@ struct GlobalConstants
     DirectX::XMVECTOR CameraV;
     DirectX::XMVECTOR CameraW;
     DirectX::XMVECTOR CameraPosition;
+
+    DirectX::XMFLOAT2 GlobalJitter;
+    uint32_t FrameNumber;
+    int32_t _padding;
 };
+
+static const int randomSeed = 123;
 
 PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
     : m_device(device)
     , m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
     , m_frameConstantBuffer(L"FrameConstants", device, sizeof(GlobalConstants))
+    , m_frameNumber(0)
+    , m_randomGenerator(randomSeed)
 {
     LoadShaders(true);
     CreateRootSignatures();
@@ -67,12 +75,18 @@ void PathTracer::SetScene(Scene& scene)
     }
 }
 
-void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera, int frameIndex)
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera)
 {
+    std::uniform_real_distribution<float> randomNumberDistribution(0.0f, 1.0f);
+
     // Update per-frame constants.
+    uint32_t frameIndex = m_frameNumber % m_frameConstantBuffer.GetNumBuffers();
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
     activeCamera.ComputeCameraParams((float)m_outputResource.GetWidth() / m_outputResource.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
     globalConstants->CameraPosition = activeCamera.GetPosition();
+    globalConstants->GlobalJitter.x = randomNumberDistribution(m_randomGenerator);  // hammersley/halton would likely be better for this usecase
+    globalConstants->GlobalJitter.y = randomNumberDistribution(m_randomGenerator);
+    globalConstants->FrameNumber = m_frameNumber;
 
     // Transition output buffer from copy to unordered access - assume it starts as pixel shader resource.
     CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -93,6 +107,8 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     // Set output back to pixel shader resource.
     transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     commandList->ResourceBarrier(1, &transition);
+
+    ++m_frameNumber;
 }
 
 void PathTracer::CreateShaderBindingTable(Scene& scene)

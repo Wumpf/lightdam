@@ -23,6 +23,10 @@ cbuffer GlobalConstants : register(b0)
     float3 CameraV;
     float3 CameraW;
     float3 CameraPosition;
+
+    // Jitter value between 0 and 1, different every frame.
+    float2 GlobalJitter;
+    uint FrameNumber;
 };
 
 // Raytracing acceleration structure, accessed as a SRV

@@ -224,7 +224,7 @@ void Application::PopulateCommandList()
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
-    m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera, m_swapChain->GetCurrentFrameIndex());
+    m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera);
     m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
     m_gui->Draw(*this, m_commandList.Get());
 

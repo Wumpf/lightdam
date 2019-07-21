@@ -9,7 +9,7 @@ export void RayGen()
 
     uint2 launchIndex = DispatchRaysIndex().xy;
     float2 dims = float2(DispatchRaysDimensions().xy);
-    float2 screenCoord = ((launchIndex.xy + 0.5f) / dims.xy) * 2.0 - 1.0f;
+    float2 screenCoord = ((launchIndex.xy + GlobalJitter) / dims.xy) * 2.0 - 1.0f;
 
     RayDesc ray;
     ray.Origin = CameraPosition;
