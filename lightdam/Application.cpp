@@ -179,6 +179,11 @@ void Application::OnWindowResize()
 {
     uint32_t windowWidth, windowHeight;
     m_window->GetSize(windowWidth, windowHeight);
+
+    // If window got zero size for some reason, don't do the resize on our graphics resources since something is bound to crash with that.
+    if (windowWidth == 0 || windowHeight == 0)
+        return;
+
     m_swapChain->Resize(windowWidth, windowHeight);
     m_pathTracer->ResizeOutput(windowWidth, windowHeight);
 }
