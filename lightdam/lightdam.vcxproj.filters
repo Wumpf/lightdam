@@ -148,5 +148,8 @@
     <CopyFileToFolders Include="shaders\Common.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="shaders\ShadowRay.hlsl">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>

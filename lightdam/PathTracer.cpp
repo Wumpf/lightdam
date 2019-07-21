@@ -54,14 +54,20 @@ void PathTracer::ReloadShaders()
 void PathTracer::SetScene(Scene& scene)
 {
     CreateShaderBindingTable(scene);
+    m_activeTLAS = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
 
-    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_rayGenDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize);
-    D3D12_SHADER_RESOURCE_VIEW_DESC tlasView = {};
-    tlasView.Format = DXGI_FORMAT_UNKNOWN;
-    tlasView.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-    tlasView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    tlasView.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
-    m_device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
+    //CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_globalScenePropertiesDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize);
+
+    //commandList->SetComputeRootConstantBufferView(0, m_frameConstantBuffer.GetGPUAddress(frameIndex));
+
+    //{
+    //    D3D12_SHADER_RESOURCE_VIEW_DESC tlasView = {};
+    //    tlasView.Format = DXGI_FORMAT_UNKNOWN;
+    //    tlasView.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    //    tlasView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    //    tlasView.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
+    //    m_device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
+    //}
 }
 
 void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const Camera& activeCamera, int frameIndex)
@@ -76,6 +82,8 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Te
     commandList->SetDescriptorHeaps(_countof(heaps), heaps);
     commandList->SetComputeRootSignature(m_globalRootSignature.Get());
     commandList->SetComputeRootConstantBufferView(0, m_frameConstantBuffer.GetGPUAddress(frameIndex));
+    commandList->SetComputeRootShaderResourceView(1, m_activeTLAS);
+   
 
     // Transition output buffer from copy to unordered access - assumes we copied previously.
     CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -102,13 +110,14 @@ void PathTracer::CreateShaderBindingTable(Scene& scene)
 {
     m_bindingTableGenerator.Clear();
     
-    D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_rayGenDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
-    auto heapPointer = reinterpret_cast<uint64_t*>(srvUavHeapHandle.ptr);
-    m_bindingTableGenerator.SetRayGenProgram(L"RayGen", { (uint64_t)heapPointer });
+    m_bindingTableGenerator.SetRayGenProgram(L"RayGen", {});
     m_bindingTableGenerator.AddMissProgram(L"Miss", {});
+    m_bindingTableGenerator.AddMissProgram(L"ShadowMiss", {});
     for (const auto& mesh : scene.GetMeshes())
+    {
         m_bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.vertexBuffer->GetGPUVirtualAddress(), mesh.indexBuffer->GetGPUVirtualAddress() });
-
+        m_bindingTableGenerator.AddHitGroupProgram(L"ShadowHitGroup", { });
+    }
     m_shaderBindingTable = m_bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), m_device.Get());
 }
 
@@ -117,7 +126,7 @@ void PathTracer::CreateDescriptorHeap()
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    descriptorHeapDesc.NumDescriptors = 2;
+    descriptorHeapDesc.NumDescriptors = 1;
     ThrowIfFailed(m_device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_rayGenDescriptorHeap)));
 }
 
@@ -141,6 +150,7 @@ bool PathTracer::LoadShaders(bool throwOnFailure)
         newShaders.rayGenLibrary = Shader::CompileFromFile(L"shaders/RayGen.hlsl");
         newShaders.missLibrary = Shader::CompileFromFile(L"shaders/Miss.hlsl");
         newShaders.hitLibrary = Shader::CompileFromFile(L"shaders/Hit.hlsl");
+        newShaders.shadowRayLibrary = Shader::CompileFromFile(L"shaders/ShadowRay.hlsl");
     }
     catch (const std::runtime_error& exception)
     {
@@ -166,34 +176,36 @@ void PathTracer::CreateRootSignatures()
 {
     // Global root signature
     {
-        CD3DX12_ROOT_PARAMETER1 params[1] = {};
-        params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+        CD3DX12_ROOT_PARAMETER1 params[2] = {}; // TODO: better as descriptor heap?
+        params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);  // Global constant buffer at c0
+        params[1].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);                       // TLAS in t0, space0
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params);
         m_globalRootSignature = CreateRootSignature(L"PathTracerGlobalRootSig", m_device.Get(), rootSignatureDesc);
     }
     // RayGen local root signature
     {
+        // RWTexture must be defined in a (only raw & structured buffers can be mapped via root descriptor UAV so we need a descriptor table here instead (TODO: uh, why?)
         CD3DX12_DESCRIPTOR_RANGE1 descriptorRanges[] =
         {
-            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC), // Output buffer in u0
-            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC), // TLAS in t0
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE), // Output buffer in u0
         };
-        CD3DX12_ROOT_PARAMETER1 param; param.InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(1, &param, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_rayGenSignature = CreateRootSignature(L"RayGen", m_device.Get(), rootSignatureDesc);
+        CD3DX12_ROOT_PARAMETER1 params[1] = {}; // TODO: better as descriptor heap?
+        params[0].InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
+        m_signatureRayGen = CreateRootSignature(L"RayGen", m_device.Get(), rootSignatureDesc);
     }
     // Miss local root signature
     {
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(0, (D3D12_ROOT_PARAMETER1*)nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_missSignature = CreateRootSignature(L"Miss", m_device.Get(), rootSignatureDesc);
+        m_signatureNoSceneData = CreateRootSignature(L"NoSceneData", m_device.Get(), rootSignatureDesc);
     }
     // Hit local root signature.
     {
-        CD3DX12_ROOT_PARAMETER1 params[2];
-        params[0].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Vertex buffer in t0,space0
-        params[1].InitAsShaderResourceView(0, 1, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Index buffer in t0,space1
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(sizeof(params) / sizeof(params[0]), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
-        m_hitSignature = CreateRootSignature(L"Hit", m_device.Get(), rootSignatureDesc);
+        CD3DX12_ROOT_PARAMETER1 params[2];  // TODO: would be bette as descriptor heap since it would reduce number of things set per mesh!
+        params[0].InitAsShaderResourceView(0, 1, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Vertex buffer in t0,space1
+        params[1].InitAsShaderResourceView(0, 2, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Index buffer in t0,space2
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
+        m_signatureSceneData = CreateRootSignature(L"SceneData", m_device.Get(), rootSignatureDesc);
     }
 }
 
@@ -214,6 +226,10 @@ void PathTracer::CreateRaytracingPipelineObject()
         auto closestHitLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
         closestHitLib->SetDXILLibrary(&m_shaders.hitLibrary.GetByteCode());
         closestHitLib->DefineExport(L"ClosestHit");
+
+        auto shadowRayLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+        shadowRayLib->SetDXILLibrary(&m_shaders.shadowRayLibrary.GetByteCode());
+        shadowRayLib->DefineExport(L"ShadowMiss");
     }
     // Shader config
     {
@@ -224,7 +240,7 @@ void PathTracer::CreateRaytracingPipelineObject()
     // Pipeline config.
     {
         auto config = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
-        config->Config(1);
+        config->Config(2); // MaxRecursionDepth - ray + shadow ray
     }
     // Hit groups to export association.
     {
@@ -233,29 +249,35 @@ void PathTracer::CreateRaytracingPipelineObject()
         hitGroup->SetClosestHitShaderImport(L"ClosestHit");
         hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
     }
+    {
+        auto shadowHitGroup = stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+        shadowHitGroup->SetHitGroupExport(L"ShadowHitGroup");
+        shadowHitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
+    }
 
     // Local root signatures & association to hitgroup/type
     {
         {
             auto localRootSignature_rayGen = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
-            localRootSignature_rayGen->SetRootSignature(m_rayGenSignature.Get());
+            localRootSignature_rayGen->SetRootSignature(m_signatureRayGen.Get());
             auto localRootSignatureAssociation_rayGen = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
             localRootSignatureAssociation_rayGen->SetSubobjectToAssociate(*localRootSignature_rayGen);
             localRootSignatureAssociation_rayGen->AddExport(L"RayGen");
         }
         {
             auto localRootSignature_miss = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
-            localRootSignature_miss->SetRootSignature(m_missSignature.Get());
-            auto localRootSignatureAssociation_miss = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
-            localRootSignatureAssociation_miss->SetSubobjectToAssociate(*localRootSignature_miss);
-            localRootSignatureAssociation_miss->AddExport(L"Miss");
+            localRootSignature_miss->SetRootSignature(m_signatureNoSceneData.Get());
+            auto localRootSignatureAssociation_noSceneData = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            localRootSignatureAssociation_noSceneData->SetSubobjectToAssociate(*localRootSignature_miss);
+            localRootSignatureAssociation_noSceneData->AddExport(L"Miss");
+            localRootSignatureAssociation_noSceneData->AddExport(L"ShadowHitGroup");
         }
         {
             auto localRootSignature_hit = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
-            localRootSignature_hit->SetRootSignature(m_hitSignature.Get());
-            auto localRootSignatureAssociation_hit = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
-            localRootSignatureAssociation_hit->SetSubobjectToAssociate(*localRootSignature_hit);
-            localRootSignatureAssociation_hit->AddExport(L"HitGroup");
+            localRootSignature_hit->SetRootSignature(m_signatureSceneData.Get());
+            auto localRootSignatureAssociation_sceneData = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+            localRootSignatureAssociation_sceneData->SetSubobjectToAssociate(*localRootSignature_hit);
+            localRootSignatureAssociation_sceneData->AddExport(L"HitGroup");
         }
     }
 

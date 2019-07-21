@@ -6,8 +6,8 @@ struct Vertex
     float3 normal;
 };
 
-StructuredBuffer<Vertex> VertexBuffer : register(t0, space0);
-StructuredBuffer<uint> IndexBuffer : register(t0, space1);
+StructuredBuffer<Vertex> VertexBuffer : register(t0, space1);
+StructuredBuffer<uint> IndexBuffer : register(t0, space2);
 
 [shader("closesthit")]
 export void ClosestHit(inout HitInfo payload, Attributes attrib)
@@ -19,7 +19,34 @@ export void ClosestHit(inout HitInfo payload, Attributes attrib)
     uint vertexIdx2 = IndexBuffer[primitiveIdx + 2];
     float3 normal = normalize(BarycentricLerp(VertexBuffer[vertexIdx0].normal, VertexBuffer[vertexIdx1].normal, VertexBuffer[vertexIdx2].normal, barycentrics));
 
-    float light = saturate(dot(normal, normalize(float3(0.0f, -1.0f, 1.0f))));
+    float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
+
+    float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+
+    RayDesc shadowRay;
+    shadowRay.Origin = worldPosition;
+    shadowRay.Direction = dirToLight;
+    shadowRay.TMin = 0.01f;
+    shadowRay.TMax = 100000;
+
+    ShadowHitInfo shadowPayLoad;
+    shadowPayLoad.isHit = true;
+
+    // ShadowRay
+    // In binding table we alternate between HitGroup and ShadowHitGroup, therefore 1 ray contribution and factor 2 for geometry index!
+    // Same goes for MissShader
+    TraceRay(SceneBVH,
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+        0xFF, // InstanceInclusionMask
+        1, // RayContributionToHitGroupIndex
+        2, // MultiplierForGeometryContributionToHitGroupIndex
+        1, // MissShaderIndex
+        shadowRay, shadowPayLoad);
+
+
+    float light = saturate(dot(normal, dirToLight));
+    if (shadowPayLoad.isHit)
+        light = 0.0f;
     payload.colorAndDistance = float4(light, light, light, RayTCurrent());
     //payload.colorAndDistance = float4(normal * 0.5f + 0.5f, RayTCurrent());
 }

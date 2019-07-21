@@ -1,10 +1,7 @@
 #include "Common.hlsl"
 
 // Raytracing output texture, accessed as a UAV
-RWTexture2D< float4 > gOutput : register(u0);
-
-// Raytracing acceleration structure, accessed as a SRV
-RaytracingAccelerationStructure SceneBVH : register(t0);
+RWTexture2D< float4 > gOutput : register(u0, space0);
 
 [shader("raygeneration")]
 export void RayGen()
@@ -23,10 +20,12 @@ export void RayGen()
     ray.TMin = 0;
     ray.TMax = 100000;
 
+    // HitRay
+    // In binding table we alternate between HitGroup and ShadowHitGroup, therefore 0 ray contribution and factor 2 for geometry index!
     TraceRay(SceneBVH, RAY_FLAG_NONE,
             0xFF, // InstanceInclusionMask
             0, // RayContributionToHitGroupIndex
-            1, // MultiplierForGeometryContributionToHitGroupIndex
+            2, // MultiplierForGeometryContributionToHitGroupIndex
             0, // MissShaderIndex
             ray, payload);
 
