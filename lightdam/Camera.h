@@ -8,7 +8,9 @@ public:
     Camera();
     ~Camera();
 
-    void operator = (const Camera& camera);
+    void operator =(const Camera& camera);
+    bool operator ==(const Camera& camera);
+    bool operator !=(const Camera& camera) { return !(*this == camera); }
 
     void SetVFovRad(float vfovDegree)               { m_vFovRad = vfovDegree; }
     void SetPosition(DirectX::FXMVECTOR position)   { m_position = position; }

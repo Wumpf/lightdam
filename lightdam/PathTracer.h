@@ -5,6 +5,7 @@
 #include "dx12/GraphicsResource.h"
 #include "dx12/DynamicConstantBuffer.h"
 #include "dx12/RaytracingShaderBindingTable.h"
+#include "Camera.h"
 #include <random>
 
 struct IDxcBlob;
@@ -20,7 +21,7 @@ public:
     void ReloadShaders();
     void SetScene(Scene& scene);
 
-    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const class Camera& activeCamera);
+    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera);
 
     // Returns descriptor handle for output texture, living in the descriptor heap used and set by the pathtracer.
     const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const     { return m_outputGPUDescriptorHandleSRV; }
@@ -33,6 +34,8 @@ private:
     void CreateDescriptorHeap();
     void CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight);
 
+    void RestartSampling();
+
     ComPtr<ID3D12Device5> m_device;
 
     ComPtr<ID3D12DescriptorHeap> m_staticDescriptorHeap;
@@ -42,6 +45,7 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE m_outputGPUDescriptorHandleSRV;
 
     DynamicConstantBuffer m_frameConstantBuffer;
+    Camera m_lastCamera;
 
     Shader m_rayGenLibrary;
     Shader m_hitLibrary;

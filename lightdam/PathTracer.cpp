@@ -57,6 +57,7 @@ void PathTracer::ReloadShaders()
     {
         CreateRaytracingPipelineObject();
         m_shaderBindingTable = m_bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), m_device.Get());
+        RestartSampling();
     }
 }
 
@@ -77,6 +78,12 @@ void PathTracer::SetScene(Scene& scene)
 
 void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera)
 {
+    if (m_lastCamera != activeCamera)
+    {
+        RestartSampling();
+        m_lastCamera = activeCamera;
+    }
+
     std::uniform_real_distribution<float> randomNumberDistribution(0.0f, 1.0f);
 
     // Update per-frame constants.
@@ -164,6 +171,12 @@ void PathTracer::CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight)
         srvDesc.Texture2D.MipLevels = 1;
         m_device->CreateShaderResourceView(m_outputResource.Get(), &srvDesc, descriptorHandleCPU);
     }
+}
+
+void PathTracer::RestartSampling()
+{
+    m_frameNumber = 0;
+    m_randomGenerator.seed(randomSeed);
 }
 
 bool PathTracer::LoadShaders(bool throwOnFailure)

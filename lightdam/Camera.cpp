@@ -19,6 +19,15 @@ void Camera::operator = (const Camera& camera)
     memcpy(this, &camera, sizeof(Camera));
 }
 
+bool Camera::operator ==(const Camera& camera)
+{
+    return
+        XMVector3Equal(m_position, camera.m_position) &&
+        XMVector3Equal(m_direction, camera.m_direction) &&
+        XMVector3Equal(m_up, camera.m_up) &&
+        m_vFovRad == camera.m_vFovRad;
+}
+
 void Camera::SnapUpToAxis()
 {
     static constexpr XMFLOAT3 xpos(1, 0, 0);
