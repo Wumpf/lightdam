@@ -51,6 +51,12 @@ PathTracer::~PathTracer()
 {
 }
 
+void PathTracer::ResizeOutput(uint32_t outputWidth, uint32_t outputHeight)
+{
+    CreateOutputBuffer(outputWidth, outputHeight);
+    RestartSampling();
+}
+
 void PathTracer::ReloadShaders()
 {
     if (LoadShaders(false))
@@ -91,7 +97,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
     activeCamera.ComputeCameraParams((float)m_outputResource.GetWidth() / m_outputResource.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
     globalConstants->CameraPosition = activeCamera.GetPosition();
-    globalConstants->GlobalJitter.x = randomNumberDistribution(m_randomGenerator);  // hammersley/halton would likely be better for this usecase
+    globalConstants->GlobalJitter.x = randomNumberDistribution(m_randomGenerator);  // hammersley/halton would likely be better for this usecase, but we take so many samples that it doesn't really metter
     globalConstants->GlobalJitter.y = randomNumberDistribution(m_randomGenerator);
     globalConstants->FrameNumber = m_frameNumber;
 

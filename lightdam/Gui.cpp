@@ -6,8 +6,9 @@
 #include "dx12/SwapChain.h"
 #include "ErrorHandling.h"
 
-#include "Camera.h"
 #include "Application.h"
+#include "Camera.h"
+#include "PathTracer.h"
 #include "Scene.h"
 
 #include <numeric>
@@ -67,6 +68,13 @@ void Gui::SetupUI(Application& application)
     ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
+    if (ImGui::CollapsingHeader("PathTracer"))
+    {
+        PathTracer& pathTracer = application.GetPathTracer();
+        ImGui::LabelText("Samples per Pixel", "%i", pathTracer.GetFrameNumber());
+        if (ImGui::Button("Restart Sampling"))
+            pathTracer.RestartSampling();
+    }
     if (ImGui::CollapsingHeader("Scene"))
     {
         const Scene& scene = application.GetScene();

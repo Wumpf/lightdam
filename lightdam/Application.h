@@ -19,8 +19,9 @@ public:
     void Run();
     void LoadScene(const std::string& pbrtFileName);
 
-    const class Scene& GetScene() const             { return *m_scene; }
-    class ControllableCamera& GetActiveCamera()     { return m_activeCamera; }
+    const class Scene& GetScene() const          { return *m_scene; }
+    class PathTracer& GetPathTracer()            { return *m_pathTracer; }
+    class ControllableCamera& GetActiveCamera()  { return m_activeCamera; }
 
 private:
     void CreateDeviceAndSwapChain();

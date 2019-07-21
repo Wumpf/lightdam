@@ -17,14 +17,18 @@ public:
     PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
     ~PathTracer();
 
-    void ResizeOutput(uint32_t outputWidth, uint32_t outputHeight) { CreateOutputBuffer(outputWidth, outputHeight); }
+    void ResizeOutput(uint32_t outputWidth, uint32_t outputHeight);
     void ReloadShaders();
+    void RestartSampling();
     void SetScene(Scene& scene);
 
     void DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera);
 
     // Returns descriptor handle for output texture, living in the descriptor heap used and set by the pathtracer.
     const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const     { return m_outputGPUDescriptorHandleSRV; }
+
+    // Number of frames sent to the GPU == number of samples per Pixel.
+    uint32_t GetFrameNumber() const { return m_frameNumber; }
 
 private:
     bool LoadShaders(bool throwOnFailure);
@@ -33,8 +37,6 @@ private:
     void CreateShaderBindingTable(Scene& scene);
     void CreateDescriptorHeap();
     void CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight);
-
-    void RestartSampling();
 
     ComPtr<ID3D12Device5> m_device;
 
