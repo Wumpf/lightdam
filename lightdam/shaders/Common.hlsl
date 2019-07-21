@@ -27,7 +27,8 @@ cbuffer GlobalConstants : register(b0)
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
-
+// Raytracing output texture, accessed as a UAV
+RWTexture2D<float4> gOutput : register(u0, space0);
 
 float BarycentricLerp(in float v0, in float v1, in float v2, in float3 barycentrics)
 {

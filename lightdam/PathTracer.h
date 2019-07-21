@@ -33,10 +33,9 @@ private:
     void CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight);
 
     ComPtr<ID3D12Device5> m_device;
-    D3D12_GPU_VIRTUAL_ADDRESS m_activeTLAS;
 
     TextureResource m_outputResource;
-    ComPtr<ID3D12DescriptorHeap> m_rayGenDescriptorHeap;
+    ComPtr<ID3D12DescriptorHeap> m_staticDescriptorHeap;
     DynamicConstantBuffer m_frameConstantBuffer;
 
     struct PathTracerShaders
@@ -49,9 +48,8 @@ private:
     PathTracerShaders m_shaders;
 
     ComPtr<ID3D12RootSignature> m_globalRootSignature;
-    ComPtr<ID3D12RootSignature> m_signatureRayGen;
+    ComPtr<ID3D12RootSignature> m_signatureEmpty;
     ComPtr<ID3D12RootSignature> m_signatureSceneData;
-    ComPtr<ID3D12RootSignature> m_signatureNoSceneData;
 
     ComPtr<ID3D12StateObject> m_raytracingPipelineObject;
     ComPtr<ID3D12StateObjectProperties> m_raytracingPipelineObjectProperties;
