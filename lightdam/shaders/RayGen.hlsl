@@ -26,5 +26,5 @@ export void RayGen()
             0, // MissShaderIndex
             ray, payload);
 
-    gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+    gOutput[launchIndex] += float4(payload.colorAndDistance.rgb, 1.f);
 }

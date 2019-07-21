@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dx12/SwapChain.h"
+#include "dx12/Shader.h"
 #include "Camera.h"
 #include "DirectoryWatcher.h"
 #include <memory>
@@ -36,6 +37,7 @@ private:
     std::unique_ptr<class Gui> m_gui;
     std::unique_ptr<class Scene> m_scene;
     std::unique_ptr<class PathTracer> m_pathTracer;
+    std::unique_ptr<class ToneMapper> m_toneMapper;
     ControllableCamera m_activeCamera;
     DirectoryWatcher m_shaderDirectoryWatcher;
 

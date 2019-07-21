@@ -11,6 +11,7 @@
 #include "Scene.h"
 #include "dx12/TopLevelAS.h"
 #include "dx12/GraphicsResource.h"
+#include "dx12/RootSignature.h"
 #include "ErrorHandling.h"
 #include "MathUtils.h"
 #include "Camera.h"
@@ -66,15 +67,15 @@ void PathTracer::SetScene(Scene& scene)
     }
 }
 
-void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const Camera& activeCamera, int frameIndex)
+void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera, int frameIndex)
 {
     // Update per-frame constants.
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
-    activeCamera.ComputeCameraParams((float)renderTarget.GetWidth() / renderTarget.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
+    activeCamera.ComputeCameraParams((float)m_outputResource.GetWidth() / m_outputResource.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
     globalConstants->CameraPosition = activeCamera.GetPosition();
 
-    // Transition output buffer from copy to unordered access - assumes we copied previously.
-    CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    // Transition output buffer from copy to unordered access - assume it starts as pixel shader resource.
+    CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     commandList->ResourceBarrier(1, &transition);
 
     // Setup global resources.
@@ -89,16 +90,8 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Te
     commandList->SetPipelineState1(m_raytracingPipelineObject.Get());
     m_shaderBindingTable.DispatchRays(commandList, m_outputResource.GetWidth(), m_outputResource.GetHeight());
 
-    // Copy raytracing output buffer to backbuffer.
-    CD3DX12_RESOURCE_BARRIER transitions[] = {
-        CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE),
-        CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST)
-    };
-    commandList->ResourceBarrier(2, transitions);
-    commandList->CopyResource(renderTarget.Get(), m_outputResource.Get());
-
-    // Go back to render target state.
-    transition = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    // Set output back to pixel shader resource.
+    transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     commandList->ResourceBarrier(1, &transition);
 }
 
@@ -122,57 +115,65 @@ void PathTracer::CreateDescriptorHeap()
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    descriptorHeapDesc.NumDescriptors = 2;
+    descriptorHeapDesc.NumDescriptors = 3;
     ThrowIfFailed(m_device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_staticDescriptorHeap)));
 }
 
 void PathTracer::CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight)
 {
-    m_outputResource = TextureResource::CreateTexture2D(L"PathTracer outputBuffer", DXGI_FORMAT_R8G8B8A8_UNORM, outputWidth, outputHeight, 1,
-                                                        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE, m_device.Get());
+    const auto format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    m_outputResource = TextureResource::CreateTexture2D(L"PathTracer outputBuffer", format, outputWidth, outputHeight, 1,
+                                                        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, m_device.Get());
 
-    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(m_staticDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorHeapIncrementSize * 1);
-    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, descriptorHandle);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleCPU(m_staticDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE descriptorHandleGPU(m_staticDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+    // Descriptor for UAV.
+    {
+        descriptorHandleCPU.Offset(m_descriptorHeapIncrementSize);
+        descriptorHandleGPU.Offset(m_descriptorHeapIncrementSize); //m_outputGPUDescriptorHandleUAV = descriptorHandleGPU.Offset(m_descriptorHeapIncrementSize);
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+        uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+        m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, descriptorHandleCPU);
+    }
+
+    // Descriptor for SRV.
+    {
+        descriptorHandleCPU.Offset(m_descriptorHeapIncrementSize);
+        m_outputGPUDescriptorHandleSRV = descriptorHandleGPU.Offset(m_descriptorHeapIncrementSize);
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+        m_device->CreateShaderResourceView(m_outputResource.Get(), &srvDesc, descriptorHandleCPU);
+    }
 }
 
 bool PathTracer::LoadShaders(bool throwOnFailure)
 {
-    // Only if loading every single shader works, we go store them.
-    PathTracerShaders newShaders;
-    try
+    const Shader::LoadInstruction shaderLoads[] =
     {
-        newShaders.rayGenLibrary = Shader::CompileFromFile(L"shaders/RayGen.hlsl");
-        newShaders.missLibrary = Shader::CompileFromFile(L"shaders/Miss.hlsl");
-        newShaders.hitLibrary = Shader::CompileFromFile(L"shaders/Hit.hlsl");
-        newShaders.shadowRayLibrary = Shader::CompileFromFile(L"shaders/ShadowRay.hlsl");
-    }
-    catch (const std::runtime_error& exception)
+        { Shader::Type::Library, L"shaders/RayGen.hlsl", L"" },
+        { Shader::Type::Library, L"shaders/Miss.hlsl", L"" },
+        { Shader::Type::Library, L"shaders/Hit.hlsl", L"" },
+        { Shader::Type::Library, L"shaders/ShadowRay.hlsl", L"" },
+    };
+    Shader* shaders[] =
     {
-        if (throwOnFailure) throw;
-        std::cout << exception.what() << std::endl;
-        return false;
-    }
-    m_shaders = std::move(newShaders);
-    return true;
-}
-
-static ComPtr<ID3D12RootSignature> CreateRootSignature(const wchar_t* name, ID3D12Device5* device, const CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC& desc)
-{
-    ComPtr<ID3DBlob> sigBlob;
-    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &sigBlob, nullptr));
-    ComPtr<ID3D12RootSignature> signature;
-    ThrowIfFailed(device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&signature)));
-    signature->SetName(name);
-    return signature;
+        &m_rayGenLibrary,
+        &m_missLibrary,
+        &m_hitLibrary,
+        &m_shadowRayLibrary,
+    };
+    return Shader::ReplaceShadersOnSuccessfulCompileFromFiles(shaderLoads, shaders, throwOnFailure);
 }
 
 void PathTracer::CreateRootSignatures()
 {
     // Global root signature
     {
-        CD3DX12_ROOT_PARAMETER1 params[2] = {}; // TODO: better as descriptor heap?
+        CD3DX12_ROOT_PARAMETER1 params[2] = {};
         CD3DX12_DESCRIPTOR_RANGE1 descriptorRanges[] =
         {
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),                      // TLAS in t0, space0
@@ -205,19 +206,19 @@ void PathTracer::CreateRaytracingPipelineObject()
     // Used libraries.
     {
         auto rayGenLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        rayGenLib->SetDXILLibrary(&m_shaders.rayGenLibrary.GetByteCode());
+        rayGenLib->SetDXILLibrary(&m_rayGenLibrary.GetByteCode());
         rayGenLib->DefineExport(L"RayGen");
 
         auto missLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        missLib->SetDXILLibrary(&m_shaders.missLibrary.GetByteCode());
+        missLib->SetDXILLibrary(&m_missLibrary.GetByteCode());
         missLib->DefineExport(L"Miss");
 
         auto closestHitLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        closestHitLib->SetDXILLibrary(&m_shaders.hitLibrary.GetByteCode());
+        closestHitLib->SetDXILLibrary(&m_hitLibrary.GetByteCode());
         closestHitLib->DefineExport(L"ClosestHit");
 
         auto shadowRayLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
-        shadowRayLib->SetDXILLibrary(&m_shaders.shadowRayLibrary.GetByteCode());
+        shadowRayLib->SetDXILLibrary(&m_shadowRayLibrary.GetByteCode());
         shadowRayLib->DefineExport(L"ShadowMiss");
     }
     // Shader config

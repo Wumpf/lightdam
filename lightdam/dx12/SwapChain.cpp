@@ -5,6 +5,8 @@
 #include <dxgi1_6.h>
 #include "../../external/d3dx12.h"
 
+#include <cassert>
+
 SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12Device* device)
     : m_frameIndex(0)
     , m_nextFenceSignal(1)
@@ -103,14 +105,20 @@ void SwapChain::CreateBackbufferResources()
         ID3D12Resource* backbuffer;
         ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&backbuffer)));
         m_backbuffers[n] = TextureResource(backbuffer, swapChainDesc.Format, swapChainDesc.Width, swapChainDesc.Height, 1);
+        m_backbuffers[n]->SetName((std::wstring(L"Backbuffer ") + std::to_wstring(n)).c_str());
     }
 
     // Create a RTV and a command allocator for each frame.
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+    assert(swapChainDesc.Format == DXGI_FORMAT_R8G8B8A8_UNORM); // otherwise DXGI_FORMAT_R8G8B8A8_UNORM_SRGB won't work.
+    rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_backbufferDescripterHeap->GetCPUDescriptorHandleForHeapStart());
     auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     for (UINT i = 0; i < SwapChain::BufferCount; i++)
     {
-        device->CreateRenderTargetView(m_backbuffers[i].Get(), nullptr, rtvHandle);
+        device->CreateRenderTargetView(m_backbuffers[i].Get(), &rtvDesc, rtvHandle);
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
 

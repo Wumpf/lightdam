@@ -8,6 +8,9 @@
 #include <sstream>
 #include <vector>
 
+// todo: better logging?
+#include <iostream>
+
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
@@ -15,6 +18,14 @@ static dxc::DxcDllSupport dxcDllHelper;
 static ComPtr<IDxcCompiler> dxcCompiler;
 static ComPtr<IDxcLibrary> dxcLibrary;
 static ComPtr<IDxcIncludeHandler> dxcIncludeHandler;
+
+static const wchar_t* profileStrings[] =
+{
+    L"lib_6_3", // Library,
+    L"vs_6_3", // Vertex,
+    L"ps_6_3", // Pixel,
+    L"cs_6_3", // Compute,
+};
 
 static void LoadCompiler()
 {
@@ -37,7 +48,7 @@ Shader::~Shader()
         m_shaderBlob->Release();
 }
 
-Shader Shader::CompileFromFile(const wchar_t* filename)
+Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction)
 {
     LoadCompiler();
 
@@ -57,7 +68,7 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
 
     // Compile
     ComPtr<IDxcOperationResult> result;
-    ThrowIfFailed(dxcCompiler->Compile(textBlob.Get(), filename, L"", L"lib_6_3", nullptr, 0, nullptr, 0, dxcIncludeHandler.Get(), &result));
+    ThrowIfFailed(dxcCompiler->Compile(textBlob.Get(), filename, type == Type::Library ? L"" : entryPointFunction, profileStrings[(int)type], nullptr, 0, nullptr, 0, dxcIncludeHandler.Get(), &result));
 
     // Verify the result
     HRESULT resultCode;
@@ -81,8 +92,26 @@ Shader Shader::CompileFromFile(const wchar_t* filename)
     }
 
     Shader shader;
+    shader.m_type = type;
     ThrowIfFailed(result->GetResult(&shader.m_shaderBlob));
     return shader;
+}
+
+bool Shader::ReplaceShaderOnSuccessfulCompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction, Shader& shaderToReplace, bool throwOnFailure)
+{
+    Shader newShader;
+    try
+    {
+        newShader = Shader::CompileFromFile(type, filename, entryPointFunction);
+    }
+    catch (const std::runtime_error& exception)
+    {
+        if (throwOnFailure) throw;
+        std::cout << exception.what() << std::endl;
+        return false;
+    }
+    shaderToReplace = std::move(newShader);
+    return true;
 }
 
 D3D12_SHADER_BYTECODE Shader::GetByteCode() const

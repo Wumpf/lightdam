@@ -50,6 +50,10 @@
     </ClCompile>
     <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="StringConversion.cpp" />
+    <ClCompile Include="ToneMapper.cpp" />
+    <ClCompile Include="dx12\RootSignature.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -112,6 +116,10 @@
     <ClInclude Include="..\external\dxcapi.use.h" />
     <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="StringConversion.h" />
+    <ClInclude Include="ToneMapper.h" />
+    <ClInclude Include="dx12\RootSignature.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -149,6 +157,9 @@
       <Filter>shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="shaders\ShadowRay.hlsl">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="shaders\ToneMap.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
   </ItemGroup>

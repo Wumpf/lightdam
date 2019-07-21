@@ -4,6 +4,7 @@
 #include "Gui.h"
 #include "Scene.h"
 #include "PathTracer.h"
+#include "ToneMapper.h"
 #include "ErrorHandling.h"
 
 #include <chrono>
@@ -30,6 +31,7 @@ Application::Application(int argc, char** argv)
     unsigned int windowWidth, windowHeight;
     m_window->GetSize(windowWidth, windowHeight);
     m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
+    m_toneMapper.reset(new ToneMapper(m_device.Get()));
 
     m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
     m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
@@ -62,6 +64,7 @@ Application::~Application()
         m_commandAllocators[i] = nullptr;
     }
 
+    m_toneMapper.reset();
     m_pathTracer.reset();
     m_scene.reset();
     m_gui.reset();
@@ -87,6 +90,7 @@ void Application::Run()
         {
             m_swapChain->WaitUntilGraphicsQueueProcessingDone();
             m_pathTracer->ReloadShaders();
+            m_toneMapper->ReloadShaders();
         }
 
         m_swapChain->BeginFrame();
@@ -211,6 +215,8 @@ void Application::PopulateCommandList()
     m_window->GetSize(windowWidth, windowHeight);
     D3D12_VIEWPORT viewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(windowWidth), static_cast<float>(windowHeight) };
     m_commandList->RSSetViewports(1, &viewport);
+    D3D12_RECT scissorRect = D3D12_RECT{ 0, 0, (LONG)windowWidth, (LONG)windowHeight };
+    m_commandList->RSSetScissorRects(1, &scissorRect);
 
     // Indicate that the back buffer will be used as a render target.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -218,10 +224,8 @@ void Application::PopulateCommandList()
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
-    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
-    m_pathTracer->DrawIteration(m_commandList.Get(), m_swapChain->GetCurrentRenderTarget(), m_activeCamera, m_swapChain->GetCurrentFrameIndex());
+    m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera, m_swapChain->GetCurrentFrameIndex());
+    m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
     m_gui->Draw(*this, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.

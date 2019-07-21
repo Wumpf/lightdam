@@ -19,10 +19,10 @@ public:
     void ReloadShaders();
     void SetScene(Scene& scene);
 
-    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const TextureResource& renderTarget, const class Camera& activeCamera, int frameIndex);
+    void DrawIteration(ID3D12GraphicsCommandList4* commandList, const class Camera& activeCamera, int frameIndex);
 
-
-    // todo: resize
+    // Returns descriptor handle for output texture, living in the descriptor heap used and set by the pathtracer.
+    const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const     { return m_outputGPUDescriptorHandleSRV; }
 
 private:
     bool LoadShaders(bool throwOnFailure);
@@ -34,18 +34,18 @@ private:
 
     ComPtr<ID3D12Device5> m_device;
 
-    TextureResource m_outputResource;
     ComPtr<ID3D12DescriptorHeap> m_staticDescriptorHeap;
+
+    TextureResource m_outputResource;
+    //D3D12_GPU_DESCRIPTOR_HANDLE m_outputGPUDescriptorHandleUAV;
+    D3D12_GPU_DESCRIPTOR_HANDLE m_outputGPUDescriptorHandleSRV;
+
     DynamicConstantBuffer m_frameConstantBuffer;
 
-    struct PathTracerShaders
-    {
-        Shader rayGenLibrary;
-        Shader hitLibrary;
-        Shader missLibrary;
-        Shader shadowRayLibrary;
-    };
-    PathTracerShaders m_shaders;
+    Shader m_rayGenLibrary;
+    Shader m_hitLibrary;
+    Shader m_missLibrary;
+    Shader m_shadowRayLibrary;
 
     ComPtr<ID3D12RootSignature> m_globalRootSignature;
     ComPtr<ID3D12RootSignature> m_signatureEmpty;

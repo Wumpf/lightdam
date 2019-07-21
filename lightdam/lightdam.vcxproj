@@ -101,6 +101,7 @@
     <ClCompile Include="dx12\DynamicConstantBuffer.cpp" />
     <ClCompile Include="dx12\GraphicsResource.cpp" />
     <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp" />
+    <ClCompile Include="dx12\RootSignature.cpp" />
     <ClCompile Include="dx12\Shader.cpp" />
     <ClCompile Include="dx12\SwapChain.cpp" />
     <ClCompile Include="dx12\TopLevelAS.cpp" />
@@ -110,6 +111,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="StringConversion.cpp" />
+    <ClCompile Include="ToneMapper.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -131,6 +133,7 @@
     <ClInclude Include="dx12\DynamicConstantBuffer.h" />
     <ClInclude Include="dx12\GraphicsResource.h" />
     <ClInclude Include="dx12\RaytracingShaderBindingTable.h" />
+    <ClInclude Include="dx12\RootSignature.h" />
     <ClInclude Include="dx12\Shader.h" />
     <ClInclude Include="dx12\SwapChain.h" />
     <ClInclude Include="dx12\TopLevelAS.h" />
@@ -140,6 +143,7 @@
     <ClInclude Include="Gui.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="StringConversion.h" />
+    <ClInclude Include="ToneMapper.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -193,6 +197,13 @@
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="shaders\ShadowRay.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="shaders\ToneMap.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
