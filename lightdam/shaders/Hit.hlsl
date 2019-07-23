@@ -9,25 +9,13 @@ struct Vertex
 StructuredBuffer<Vertex> VertexBuffer : register(t0, space1);
 StructuredBuffer<uint> IndexBuffer : register(t0, space2);
 
-[shader("closesthit")]
-export void ClosestHit(inout HitInfo payload, Attributes attrib)
+bool ShadowRay(float3 worldPosition, float3 dirToLight)
 {
-    float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-    uint primitiveIdx = 3 * PrimitiveIndex();
-    uint vertexIdx0 = IndexBuffer[primitiveIdx + 0];
-    uint vertexIdx1 = IndexBuffer[primitiveIdx + 1];
-    uint vertexIdx2 = IndexBuffer[primitiveIdx + 2];
-    float3 normal = normalize(BarycentricLerp(VertexBuffer[vertexIdx0].normal, VertexBuffer[vertexIdx1].normal, VertexBuffer[vertexIdx2].normal, barycentrics));
-
-    float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
-
-    float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-
     RayDesc shadowRay;
     shadowRay.Origin = worldPosition;
     shadowRay.Direction = dirToLight;
-    shadowRay.TMin = 0.01f;
-    shadowRay.TMax = 100000;
+    shadowRay.TMin = DefaultRayTMin;
+    shadowRay.TMax = DefaultRayTMax;
 
     ShadowHitInfo shadowPayLoad;
     shadowPayLoad.isHit = true;
@@ -43,10 +31,41 @@ export void ClosestHit(inout HitInfo payload, Attributes attrib)
         1, // MissShaderIndex
         shadowRay, shadowPayLoad);
 
+    return shadowPayLoad.isHit;
+}
 
-    float light = saturate(dot(normal, dirToLight));
-    if (shadowPayLoad.isHit)
-        light = 0.0f;
-    payload.colorAndDistance = float4(light, light, light, RayTCurrent());
-    //payload.colorAndDistance = float4(normal * 0.5f + 0.5f, RayTCurrent());
+[shader("closesthit")]
+export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
+{
+    float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+    uint primitiveIdx = 3 * PrimitiveIndex();
+    uint vertexIdx0 = IndexBuffer[primitiveIdx + 0];
+    uint vertexIdx1 = IndexBuffer[primitiveIdx + 1];
+    uint vertexIdx2 = IndexBuffer[primitiveIdx + 2];
+    float3 normal = normalize(BarycentricLerp(VertexBuffer[vertexIdx0].normal, VertexBuffer[vertexIdx1].normal, VertexBuffer[vertexIdx2].normal, barycentrics));
+    float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+
+    // TODO
+    float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
+
+    // TODO proper brdf etc.
+    float radianceFromLight = saturate(dot(normal, dirToLight));
+    if (ShadowRay(worldPosition, dirToLight))
+        radianceFromLight = 0.0f;
+    payload.radiance_remainingBounces.rgb = radianceFromLight.xxx;
+    payload.distance = RayTCurrent();
+
+    if (payload.distance > 0.0f)
+        payload.radiance_remainingBounces.w -= 1;
+    else
+        payload.radiance_remainingBounces.w = 0;
+
+    // todo: russion roulette, ray throughput
+
+    if (payload.radiance_remainingBounces.w > 0.0f)
+    {
+        float3 U, V;
+	    CreateONB(normal, U, V);
+        payload.nextRayDirection.xyz = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
+    }
 }

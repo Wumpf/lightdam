@@ -28,7 +28,7 @@ struct GlobalConstants
 
     DirectX::XMFLOAT2 GlobalJitter;
     uint32_t FrameNumber;
-    int32_t _padding;
+    uint32_t FrameSeed;
 };
 
 static const int randomSeed = 123;
@@ -100,6 +100,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     globalConstants->GlobalJitter.x = randomNumberDistribution(m_randomGenerator);  // hammersley/halton would likely be better for this usecase, but we take so many samples that it doesn't really metter
     globalConstants->GlobalJitter.y = randomNumberDistribution(m_randomGenerator);
     globalConstants->FrameNumber = m_frameNumber;
+    globalConstants->FrameSeed = m_randomGenerator();
 
     // Transition output buffer from copy to unordered access - assume it starts as pixel shader resource.
     CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -259,7 +260,7 @@ void PathTracer::CreateRaytracingPipelineObject()
     // Shader config
     {
         auto config = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-        config->Config(4 * sizeof(float),  // RGB + distance
+        config->Config(16 * sizeof(float),
                        2 * sizeof(float)); // barycentric coordinates
     }
     // Pipeline config.

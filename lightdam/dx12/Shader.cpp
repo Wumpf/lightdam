@@ -67,8 +67,15 @@ Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t
     ThrowIfFailed(dxcLibrary->CreateBlobWithEncodingFromPinned((LPBYTE)sShader.c_str(), (uint32_t)sShader.size(), 0, &textBlob));
 
     // Compile
+    // Enabling 16bit types sounds meaningful for various operations, but creation of raytracing pipeline state object failed using shaders using it.
+    // Reason unclear, maybe driver issues. So we don't enable it here so no one gets too tempted :)
+    //static const wchar_t* arguments[] = { L"-enable-16bit-types" };
     ComPtr<IDxcOperationResult> result;
-    ThrowIfFailed(dxcCompiler->Compile(textBlob.Get(), filename, type == Type::Library ? L"" : entryPointFunction, profileStrings[(int)type], nullptr, 0, nullptr, 0, dxcIncludeHandler.Get(), &result));
+    ThrowIfFailed(dxcCompiler->Compile(textBlob.Get(), filename,
+        type == Type::Library ? L"" : entryPointFunction, profileStrings[(int)type],
+        nullptr, 0, //arguments, _countof(arguments),
+        nullptr, 0,
+        dxcIncludeHandler.Get(), &result));
 
     // Verify the result
     HRESULT resultCode;
