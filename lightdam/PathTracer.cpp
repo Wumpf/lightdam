@@ -90,15 +90,13 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
         m_lastCamera = activeCamera;
     }
 
-    std::uniform_real_distribution<float> randomNumberDistribution(0.0f, 1.0f);
-
     // Update per-frame constants.
     uint32_t frameIndex = m_frameNumber % m_frameConstantBuffer.GetNumBuffers();
     auto globalConstants = m_frameConstantBuffer.GetData<GlobalConstants>(frameIndex);
     activeCamera.ComputeCameraParams((float)m_outputResource.GetWidth() / m_outputResource.GetHeight(), globalConstants->CameraU, globalConstants->CameraV, globalConstants->CameraW);
     globalConstants->CameraPosition = activeCamera.GetPosition();
-    globalConstants->GlobalJitter.x = randomNumberDistribution(m_randomGenerator);  // hammersley/halton would likely be better for this usecase, but we take so many samples that it doesn't really metter
-    globalConstants->GlobalJitter.y = randomNumberDistribution(m_randomGenerator);
+    globalConstants->GlobalJitter.x = ComputeHaltonSequence(m_frameNumber, 0);
+    globalConstants->GlobalJitter.y = ComputeHaltonSequence(m_frameNumber, 1);
     globalConstants->FrameNumber = m_frameNumber;
     globalConstants->FrameSeed = m_randomGenerator();
 

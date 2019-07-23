@@ -16,3 +16,5 @@ Value Align(Value v, Alignment powerOf2Alignment)
     auto _powerOf2Alignment = (uintptr_t)powerOf2Alignment;
     return (Value)(((_v)+(_powerOf2Alignment)-1) & ~((_powerOf2Alignment)-1));
 }
+
+float ComputeHaltonSequence(int index, int baseIdx);

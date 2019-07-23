@@ -54,6 +54,7 @@
     <ClCompile Include="dx12\RootSignature.cpp">
       <Filter>dx12</Filter>
     </ClCompile>
+    <ClCompile Include="MathUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
