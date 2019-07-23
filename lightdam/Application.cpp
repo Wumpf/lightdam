@@ -8,6 +8,7 @@
 #include "ErrorHandling.h"
 
 #include <chrono>
+#include <iostream>
 
 #include <dxgi1_6.h>
 #include "../external/d3dx12.h"
@@ -88,9 +89,11 @@ void Application::Run()
 
         if (m_shaderDirectoryWatcher.HasDirectoryFileChangesSinceLastCheck())
         {
+            std::cout << "Reloading shaders ..." << std::endl;
             m_swapChain->WaitUntilGraphicsQueueProcessingDone();
             m_pathTracer->ReloadShaders();
             m_toneMapper->ReloadShaders();
+            std::cout << "... done reloading shaders" << std::endl;
         }
 
         m_swapChain->BeginFrame();

@@ -65,7 +65,8 @@ void Gui::SetupUI(Application& application)
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
 
     ImGui::Begin("Lightdam");
-    ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::Text("%.3f ms/frame (%.1f FPS)", ImGui::GetIO().DeltaTime * 1000.0f, 1.0f / ImGui::GetIO().DeltaTime);
+    ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average 120f)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
     if (ImGui::CollapsingHeader("PathTracer"))
