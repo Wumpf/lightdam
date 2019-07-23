@@ -66,6 +66,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     {
         float3 U, V;
 	    CreateONB(normal, U, V);
-        payload.nextRayDirection.xyz = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
+        float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
+        payload.nextRayDirection = PackDirection(nextRayDir);
     }
 }

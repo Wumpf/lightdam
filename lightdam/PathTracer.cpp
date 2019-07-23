@@ -260,7 +260,7 @@ void PathTracer::CreateRaytracingPipelineObject()
     // Shader config
     {
         auto config = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-        config->Config(16 * sizeof(float),
+        config->Config(8 * sizeof(float),
                        2 * sizeof(float)); // barycentric coordinates
     }
     // Pipeline config.

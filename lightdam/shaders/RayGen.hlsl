@@ -38,7 +38,7 @@ export void RayGen()
     while (payload.radiance_remainingBounces.w > 0.0f)
     {
         ray.Origin = ray.Origin + ray.Direction * payload.distance;
-        ray.Direction = payload.nextRayDirection.xyz;
+        ray.Direction = UnpackDirection(payload.nextRayDirection);
         TraceRadianceRay(ray, payload);
         totalRadiance += payload.radiance_remainingBounces.rgb;
         // TODO: Ray throughput

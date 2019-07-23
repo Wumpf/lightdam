@@ -7,7 +7,7 @@
 struct RadianceRayHitInfo
 {
     float4 radiance_remainingBounces;
-    float4 nextRayDirection;
+    uint nextRayDirection;
     float distance; // -1 on output means no hit
     uint randomSeed;
 };

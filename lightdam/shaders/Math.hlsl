@@ -39,3 +39,53 @@ void CreateONB(in float3 n, out float3 U, out float3 V)
 	U = normalize(U);
 	V = cross(n, U);
 }
+
+
+// Packs two floats ranging from [0; 1]
+uint PackUNorm16x2(float2 v)
+{
+	const uint mu = (uint(1) << uint(16)) - uint(1);
+    uint2 d = uint2(floor(v * float(mu) + 0.5f));
+    return (d.y << 16) | d.x;
+}
+// Packs two floats ranging from [-1; 1]
+uint PackSNorm16x2(float2 v)
+{
+	return PackUNorm16x2(0.5f * v.xy + float2(0.5f, 0.5f));
+}
+// Unpacks two UNorm values
+float2 UnpackUNorm16x2(uint packed)
+{
+    const uint mu = (uint(1) << uint(16)) - uint(1);
+    uint2 d = uint2(packed, packed >> 16) & mu;
+    return float2(d) / float(mu);
+}
+// Unpacks two SNorm values
+float2 UnpackSNorm16x2(uint packed)
+{
+	return UnpackUNorm16x2(packed) * 2.0f - 1.0;
+}
+
+
+// Compresses a direction vector using octahedral mapping
+// See for implementation https://www.shadertoy.com/view/Mtfyzl
+// and for theory http://jcgt.org/published/0003/02/01/paper.pdf
+uint PackDirection(float3 dir)
+{
+    dir /= abs(dir.x) + abs(dir.y) + abs(dir.z);
+    dir.xy = dir.z >= 0.0f ? dir.xy : ((float2(1.0f, 1.0f) - abs(dir.yx)) * sign(dir.xy));
+    return PackSNorm16x2(dir.xy);
+}
+
+// See PackDirection
+float3 UnpackDirection(uint compressedDir)
+{
+    float2 v = UnpackSNorm16x2(compressedDir);
+
+    float3 dir = float3(v, 1.0 - abs(v.x) - abs(v.y));
+    float t = max(-dir.z, 0.0);
+    dir.x += (dir.x > 0.0) ? -t : t;
+    dir.y += (dir.y > 0.0) ? -t : t;
+ 
+    return normalize(dir);
+}
