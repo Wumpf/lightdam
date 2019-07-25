@@ -7,5 +7,5 @@ export void Miss(inout RadianceRayHitInfo payload : SV_RayPayload)
 	//float2 dims = float2(DispatchRaysDimensions().xy);
 
 	//float ramp = launchIndex.y / dims.y;
-	payload.radiance_remainingBounces.w = 0.0f;
+	payload.radiance_remainingBounces = uint2(0, 0);
 }

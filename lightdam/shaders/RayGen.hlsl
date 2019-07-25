@@ -12,7 +12,7 @@ void TraceRadianceRay(in RayDesc ray, inout RadianceRayHitInfo payload)
         ray, payload);
 }
 
-#define NUM_INDIRECT_BOUNCES 4
+#define NUM_BOUNCES 4
 
 [shader("raygeneration")]
 export void RayGen()
@@ -28,19 +28,20 @@ export void RayGen()
     ray.TMax = DefaultRayTMax;
 
     RadianceRayHitInfo payload;
-    payload.radiance_remainingBounces = half4(0.0f, 0.0f, 0.0f, NUM_INDIRECT_BOUNCES);
+    payload.radiance_remainingBounces = FloatToHalf(float3(0.0f, 0.0f, 0.0f), NUM_BOUNCES);
     payload.randomSeed = InitRandomSeed(FrameSeed, launchIndex.x * dims.y + launchIndex.y);
 
     TraceRadianceRay(ray, payload);
 
-    float3 totalRadiance = payload.radiance_remainingBounces.rgb;
+    uint remainingBounces;
+    float3 totalRadiance = HalfToFloat(payload.radiance_remainingBounces, remainingBounces);
 
-    while (payload.radiance_remainingBounces.w > 0.0f)
+    while (remainingBounces > 0)
     {
         ray.Origin = ray.Origin + ray.Direction * payload.distance;
         ray.Direction = UnpackDirection(payload.nextRayDirection);
         TraceRadianceRay(ray, payload);
-        totalRadiance += payload.radiance_remainingBounces.rgb;
+        totalRadiance += HalfToFloat(payload.radiance_remainingBounces, remainingBounces);
         // TODO: Ray throughput
     }
 

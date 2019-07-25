@@ -66,7 +66,6 @@ float2 UnpackSNorm16x2(uint packed)
 	return UnpackUNorm16x2(packed) * 2.0f - 1.0;
 }
 
-
 // Compresses a direction vector using octahedral mapping
 // See for implementation https://www.shadertoy.com/view/Mtfyzl
 // and for theory http://jcgt.org/published/0003/02/01/paper.pdf
@@ -88,4 +87,30 @@ float3 UnpackDirection(uint compressedDir)
     dir.y += (dir.y > 0.0) ? -t : t;
  
     return normalize(dir);
+}
+
+uint2 FloatToHalf(float4 v)
+{
+    uint4 raw = f32tof16(v);
+    return raw.xz | (raw.yw << 16);
+}
+
+uint2 FloatToHalf(float3 v, uint extra16Bit)
+{
+    uint3 raw = f32tof16(v);
+    return uint2(raw.x | (raw.y << 16), raw.z | (extra16Bit << 16));
+}
+
+float4 HalfToFloat(uint2 v)
+{
+    uint4 raw;
+    raw.xz = v & 0x0000ffff;
+    raw.yw = v >> 16;
+    return f16tof32(raw);
+}
+
+float3 HalfToFloat(uint2 v, out uint extra16Bit)
+{
+    extra16Bit = v.y >> 16;
+    return f16tof32(uint3(v.x & 0x0000ffff, v.x >> 16, v.y & 0x0000ffff));
 }

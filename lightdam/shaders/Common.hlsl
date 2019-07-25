@@ -6,7 +6,7 @@
 // TODO: Packing
 struct RadianceRayHitInfo
 {
-    float4 radiance_remainingBounces;
+    uint2 radiance_remainingBounces; // packed as half3 + 16 bit uint
     uint nextRayDirection;
     float distance; // -1 on output means no hit
     uint randomSeed;
@@ -43,5 +43,5 @@ RaytracingAccelerationStructure SceneBVH : register(t0, space0);
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> gOutput : register(u0, space0);
 
-#define DefaultRayTMin 0.001f
+#define DefaultRayTMin 0.0001f
 #define DefaultRayTMax 100000.0f

@@ -52,17 +52,17 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float radianceFromLight = saturate(dot(normal, dirToLight));
     if (ShadowRay(worldPosition, dirToLight))
         radianceFromLight = 0.0f;
-    payload.radiance_remainingBounces.rgb = radianceFromLight.xxx;
+    
     payload.distance = RayTCurrent();
-
+    uint remainingBounces = 0;
     if (payload.distance > 0.0f)
-        payload.radiance_remainingBounces.w -= 1;
-    else
-        payload.radiance_remainingBounces.w = 0;
+        remainingBounces = (payload.radiance_remainingBounces.y >> 16) - 1;
+
+    payload.radiance_remainingBounces = FloatToHalf(radianceFromLight.xxx, remainingBounces);
 
     // todo: russion roulette, ray throughput
 
-    if (payload.radiance_remainingBounces.w > 0.0f)
+    if (remainingBounces > 0)
     {
         float3 U, V;
 	    CreateONB(normal, U, V);
