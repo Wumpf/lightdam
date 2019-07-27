@@ -6,9 +6,10 @@
 // TODO: Packing
 struct RadianceRayHitInfo
 {
-    uint2 radiance_remainingBounces; // packed as half3 + 16 bit uint
-    uint nextRayDirection;
+    float3 radiance;
     float distance; // -1 on output means no hit
+    uint2 pathThroughput_remainingBounces; // packed as half3 + 16 bit uint
+    uint nextRayDirection;
     uint randomSeed;
 };
 

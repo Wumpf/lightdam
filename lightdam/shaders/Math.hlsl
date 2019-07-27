@@ -40,30 +40,42 @@ void CreateONB(in float3 n, out float3 U, out float3 V)
 	V = cross(n, U);
 }
 
+static const uint BitMask16 = 0x0000ffff;
+static const float BitMask16f = float(BitMask16);
+static const float BitMask16invf = 1.0f / BitMask16f;
 
 // Packs two floats ranging from [0; 1]
-uint PackUNorm16x2(float2 v)
+uint PackUNorm16(float2 v)
 {
-	const uint mu = (uint(1) << uint(16)) - uint(1);
-    uint2 d = uint2(floor(v * float(mu) + 0.5f));
+    uint2 d = uint2(floor(v * BitMask16f + 0.5f));
     return (d.y << 16) | d.x;
 }
-// Packs two floats ranging from [-1; 1]
-uint PackSNorm16x2(float2 v)
+uint2 PackUNorm16(float3 v, uint extra16Bit)
 {
-	return PackUNorm16x2(0.5f * v.xy + float2(0.5f, 0.5f));
+    uint3 d = uint3(floor(v * BitMask16f + 0.5f));
+    return uint2((d.y << 16) | d.x, (extra16Bit << 16) | d.z);
+}
+// Packs two floats ranging from [-1; 1]
+uint PackSNorm16(float2 v)
+{
+	return PackUNorm16(0.5f * v.xy + float2(0.5f, 0.5f));
 }
 // Unpacks two UNorm values
-float2 UnpackUNorm16x2(uint packed)
+float2 UnpackUNorm16(uint packed)
 {
-    const uint mu = (uint(1) << uint(16)) - uint(1);
-    uint2 d = uint2(packed, packed >> 16) & mu;
-    return float2(d) / float(mu);
+    uint2 d = uint2(packed, packed >> 16) & BitMask16;
+    return d * BitMask16invf;
+}
+float3 UnpackUNorm16(uint2 packed, out uint extra16Bit)
+{
+    uint4 d = uint4(packed.x, packed.x >> 16, packed.y, packed.y >> 16) & BitMask16;
+    extra16Bit = d.w;
+    return d.xyz * BitMask16invf;
 }
 // Unpacks two SNorm values
-float2 UnpackSNorm16x2(uint packed)
+float2 UnpackSNorm16(uint packed)
 {
-	return UnpackUNorm16x2(packed) * 2.0f - 1.0;
+	return UnpackUNorm16(packed) * 2.0f - 1.0;
 }
 
 // Compresses a direction vector using octahedral mapping
@@ -73,13 +85,13 @@ uint PackDirection(float3 dir)
 {
     dir /= abs(dir.x) + abs(dir.y) + abs(dir.z);
     dir.xy = dir.z >= 0.0f ? dir.xy : ((float2(1.0f, 1.0f) - abs(dir.yx)) * sign(dir.xy));
-    return PackSNorm16x2(dir.xy);
+    return PackSNorm16(dir.xy);
 }
 
 // See PackDirection
 float3 UnpackDirection(uint compressedDir)
 {
-    float2 v = UnpackSNorm16x2(compressedDir);
+    float2 v = UnpackSNorm16(compressedDir);
 
     float3 dir = float3(v, 1.0 - abs(v.x) - abs(v.y));
     float t = max(-dir.z, 0.0);

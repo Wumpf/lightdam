@@ -34,6 +34,8 @@ bool ShadowRay(float3 worldPosition, float3 dirToLight)
     return shadowPayLoad.isHit;
 }
 
+#define RUSSIAN_ROULETTE
+
 [shader("closesthit")]
 export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 {
@@ -46,27 +48,48 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     // TODO
+    float3 diffuseColor = float3(0.8f, 0.8f, 0.8f);
     float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
 
     // TODO proper brdf etc.
-    float radianceFromLight = saturate(dot(normal, dirToLight));
+    float radianceFromLight = saturate(dot(normal, dirToLight)) * diffuseColor;
     if (ShadowRay(worldPosition, dirToLight))
         radianceFromLight = 0.0f;
     
     payload.distance = RayTCurrent();
-    uint remainingBounces = 0;
-    if (payload.distance > 0.0f)
-        remainingBounces = (payload.radiance_remainingBounces.y >> 16) - 1;
 
-    payload.radiance_remainingBounces = FloatToHalf(radianceFromLight.xxx, remainingBounces);
-
-    // todo: russion roulette, ray throughput
-
-    if (remainingBounces > 0)
+    uint remainingBounces;
+    float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
+    remainingBounces -= 1;
+    payload.radiance = radianceFromLight.xxx * pathThroughput;
+    
+    if (remainingBounces == 0)
     {
-        float3 U, V;
-	    CreateONB(normal, U, V);
-        float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
-        payload.nextRayDirection = PackDirection(nextRayDir);
+        payload.pathThroughput_remainingBounces.y = 0;
+        return;
     }
+
+
+    // pathpathThroughput *= brdf * cos(Out, N) / pdf
+    // With SampleHemisphereCosine: pdf == cos(Out, N) / PI
+    // Lambert brdf: DiffuseColor / PI;
+    float3 throughput = diffuseColor;
+
+#ifdef RUSSIAN_ROULETTE
+    float continuationPropability = saturate(GetLuminance(throughput));
+    if (Random(payload.randomSeed) >= continuationPropability) // if continuationPropability is zero, path should be stoped -> >=
+    {
+        payload.pathThroughput_remainingBounces.y = 0;
+        return;
+    }
+    pathThroughput /= continuationPropability; // Only change in spectrum, no energy loss.
+#endif
+
+    pathThroughput *= throughput;
+    payload.pathThroughput_remainingBounces = FloatToHalf(pathThroughput, remainingBounces);
+
+    float3 U, V;
+    CreateONB(normal, U, V);
+    float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
+    payload.nextRayDirection = PackDirection(nextRayDir);
 }
