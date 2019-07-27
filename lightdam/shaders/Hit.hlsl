@@ -1,14 +1,5 @@
 #include "Common.hlsl"
 
-struct Vertex
-{
-    float3 vertex;
-    float3 normal;
-};
-
-StructuredBuffer<Vertex> VertexBuffer : register(t0, space1);
-StructuredBuffer<uint> IndexBuffer : register(t0, space2);
-
 bool ShadowRay(float3 worldPosition, float3 dirToLight)
 {
     RayDesc shadowRay;
@@ -41,10 +32,15 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 {
     float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     uint primitiveIdx = 3 * PrimitiveIndex();
-    uint vertexIdx0 = IndexBuffer[primitiveIdx + 0];
-    uint vertexIdx1 = IndexBuffer[primitiveIdx + 1];
-    uint vertexIdx2 = IndexBuffer[primitiveIdx + 2];
-    float3 normal = normalize(BarycentricLerp(VertexBuffer[vertexIdx0].normal, VertexBuffer[vertexIdx1].normal, VertexBuffer[vertexIdx2].normal, barycentrics));
+    uint vertexIdx0 = IndexBuffers[MeshIndex][primitiveIdx + 0];
+    uint vertexIdx1 = IndexBuffers[MeshIndex][primitiveIdx + 1];
+    uint vertexIdx2 = IndexBuffers[MeshIndex][primitiveIdx + 2];
+    float3 normal = normalize(
+        BarycentricLerp(
+            VertexBuffers[MeshIndex][vertexIdx0].normal,
+            VertexBuffers[MeshIndex][vertexIdx1].normal,
+            VertexBuffers[MeshIndex][vertexIdx2].normal, barycentrics)
+        );
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     // TODO
@@ -52,7 +48,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
 
     // TODO proper brdf etc.
-    float radianceFromLight = saturate(dot(normal, dirToLight)) * diffuseColor;
+    float3 radianceFromLight = saturate(dot(normal, dirToLight)) * diffuseColor;
     if (ShadowRay(worldPosition, dirToLight))
         radianceFromLight = 0.0f;
     
@@ -61,14 +57,13 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     uint remainingBounces;
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
     remainingBounces -= 1;
-    payload.radiance = radianceFromLight.xxx * pathThroughput;
+    payload.radiance = radianceFromLight * pathThroughput;
     
     if (remainingBounces == 0)
     {
         payload.pathThroughput_remainingBounces.y = 0;
         return;
     }
-
 
     // pathpathThroughput *= brdf * cos(Out, N) / pdf
     // With SampleHemisphereCosine: pdf == cos(Out, N) / PI

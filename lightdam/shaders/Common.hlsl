@@ -39,6 +39,19 @@ cbuffer GlobalConstants : register(b0)
     uint FrameSeed; // A single random number for every frame!
 };
 
+cbuffer MeshConstants : register (b1)
+{
+    uint MeshIndex; // Index used for vertex/index buffer.
+}
+
+struct Vertex
+{
+    float3 vertex; // Todo: Not actually needed, remove!
+    float3 normal;
+};
+StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);
+StructuredBuffer<uint> IndexBuffers[] : register(t0, space101);
+
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
 // Raytracing output texture, accessed as a UAV

@@ -32,11 +32,13 @@ public:
 
 private:
     bool LoadShaders(bool throwOnFailure);
-    void CreateRootSignatures();
+    void CreateRootSignatures(uint32_t maxNumMeshes);
     void CreateRaytracingPipelineObject();
-    void CreateShaderBindingTable(Scene& scene);
-    void CreateDescriptorHeap();
+    void CreateShaderBindingTable(const Scene& scene);
+    void CreateDescriptorHeap(const Scene& scene);
+
     void CreateOutputBuffer(uint32_t outputWidth, uint32_t outputHeight);
+    void WriteOutputBufferDescriptorsToDescriptorHeap();
 
     ComPtr<ID3D12Device5> m_device;
 

@@ -13,12 +13,6 @@
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
-struct Vertex
-{
-    DirectX::XMFLOAT3 position;
-    DirectX::XMFLOAT3 normal;
-};
-
 static DirectX::XMFLOAT3 PbrtVec3ToXMFloat3(pbrt::vec3f v)
 {
     return DirectX::XMFLOAT3{ v.x, v.y, v.z };
@@ -32,7 +26,7 @@ static DirectX::XMVECTOR PbrtVec3ToXMVector(pbrt::vec3f v)
 static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX::XMFLOAT3 offset, DirectX::XMFLOAT3 normal)
 {
     // Define the geometry for a triangle.
-    Vertex triangleVertices[] =
+    Scene::Vertex triangleVertices[] =
     {
         { { 0.0f + offset.x, 0.25f + offset.y, offset.z }, normal },
         { { 0.25f + offset.x, -0.25f + offset.y, offset.z }, normal },
@@ -45,6 +39,7 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX
     mesh.vertexCount = 3;
     mesh.indexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle IB", sizeof(int32_t) * 3, device);
     mesh.indexCount = 3;
+    mesh.constantBuffer = GraphicsResource::CreateUploadHeap(L"Triangle CB", sizeof(Scene::MeshConstants), device);
 
     {
         ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
@@ -56,6 +51,11 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX
         indices[0] = 2;
         indices[1] = 1;
         indices[2] = 0;
+    }
+    {
+        ScopedResourceMap contextBufferData(mesh.constantBuffer);
+        auto constants = (Scene::MeshConstants*)contextBufferData.Get();
+        constants->MeshIndex = 0;
     }
 }
 
@@ -71,20 +71,21 @@ std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5*
     return scene;
 }
 
-static Scene::Mesh LoadPbrtMesh(const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device)
+static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device)
 {
     // TODO: Don't use upload heaps
     // todo: Handle material & textures
      //shape->material
     Scene::Mesh mesh;
-    mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Vertex) * triangleShape->vertex.size(), device);
+    mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
     mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
     uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
     mesh.indexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
+    mesh.constantBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
     {
         ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
-        Vertex* vertexData = (Vertex*)vertexBufferData.Get();
+        Scene::Vertex* vertexData = (Scene::Vertex*)vertexBufferData.Get();
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
         {
             auto position = instance->xfm * triangleShape->vertex[vertexIdx];
@@ -123,6 +124,11 @@ static Scene::Mesh LoadPbrtMesh(const pbrt::TriangleMesh::SP& triangleShape, con
     {
         ScopedResourceMap indexBufferData(mesh.indexBuffer);
         memcpy(indexBufferData.Get(), triangleShape->index.data(), indexbufferSize);
+    }
+    {
+        ScopedResourceMap contextBufferData(mesh.constantBuffer);
+        auto constants = (Scene::MeshConstants*)contextBufferData.Get();
+        constants->MeshIndex = index;
     }
 
     return mesh;
@@ -182,7 +188,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
             if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh(triangleShape, instance, device));
+                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device));
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
