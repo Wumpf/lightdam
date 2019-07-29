@@ -56,6 +56,7 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX
         ScopedResourceMap contextBufferData(mesh.constantBuffer);
         auto constants = (Scene::MeshConstants*)contextBufferData.Get();
         constants->MeshIndex = 0;
+        constants->Diffuse = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
     }
 }
 
@@ -129,6 +130,11 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         ScopedResourceMap contextBufferData(mesh.constantBuffer);
         auto constants = (Scene::MeshConstants*)contextBufferData.Get();
         constants->MeshIndex = index;
+        const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
+        if (triangleShape->material)
+            constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
+        else
+            constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
     }
 
     return mesh;

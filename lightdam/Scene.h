@@ -44,7 +44,7 @@ public:
     struct MeshConstants
     {
         uint32_t MeshIndex;
-        uint32_t padding[3];
+        DirectX::XMFLOAT3 Diffuse;
     };
 
     // TODO

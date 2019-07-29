@@ -45,7 +45,6 @@ export void RayGen()
         TraceRadianceRay(ray, payload);
         totalRadiance += payload.radiance;
         remainingBounces = payload.pathThroughput_remainingBounces.y >> 16;
-        // TODO: Ray throughput
     }
 
     if (FrameNumber == 0)

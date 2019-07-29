@@ -44,20 +44,20 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     // TODO
-    float3 diffuseColor = float3(0.8f, 0.8f, 0.8f);
     float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
 
-    // TODO proper brdf etc.
-    float3 radianceFromLight = saturate(dot(normal, dirToLight)) * diffuseColor;
+    float3 brdfLightSample = Diffuse / PI;
+    float pdfLightSample = 1.0f / PI_2;
+    float irradianceLightSample = saturate(dot(normal, dirToLight)) / pdfLightSample;
     if (ShadowRay(worldPosition, dirToLight))
-        radianceFromLight = 0.0f;
+        irradianceLightSample = 0.0f;
     
     payload.distance = RayTCurrent();
 
     uint remainingBounces;
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
     remainingBounces -= 1;
-    payload.radiance = radianceFromLight * pathThroughput;
+    payload.radiance = pathThroughput * irradianceLightSample * brdfLightSample; // sample radiance contribution
     
     if (remainingBounces == 0)
     {
@@ -65,19 +65,20 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         return;
     }
 
-    // pathpathThroughput *= brdf * cos(Out, N) / pdf
-    // With SampleHemisphereCosine: pdf == cos(Out, N) / PI
-    // Lambert brdf: DiffuseColor / PI;
-    float3 throughput = diffuseColor;
+    // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
+    // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
+    // Lambert brdf: brdfNextSample = Diffuse / PI;
+    // -> throughput for Lambert: Diffuse
+    float3 throughput = Diffuse; // brdfNextSample * saturate(dot(nextRayDir, normal)) / pdf;
 
 #ifdef RUSSIAN_ROULETTE
-    float continuationPropability = saturate(GetLuminance(throughput));
-    if (Random(payload.randomSeed) >= continuationPropability) // if continuationPropability is zero, path should be stoped -> >=
+    float continuationProbability = saturate(GetLuminance(throughput));
+    if (Random(payload.randomSeed) >= continuationProbability) // if continuationProbability is zero, path should be stoped -> >=
     {
         payload.pathThroughput_remainingBounces.y = 0;
         return;
     }
-    pathThroughput /= continuationPropability; // Only change in spectrum, no energy loss.
+    pathThroughput /= continuationProbability; // Only change in spectrum, no energy loss.
 #endif
 
     pathThroughput *= throughput;
