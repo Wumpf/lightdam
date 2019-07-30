@@ -5,11 +5,25 @@
 #include <d3d12.h>
 #include "../../external/d3dx12.h"
 
-GraphicsResource::GraphicsResource(ID3D12Resource* resource, uint64_t size)
+GraphicsResource::GraphicsResource(ID3D12Resource* resource)
     : m_resource(resource)
-    , m_sizeInBytes(size)
+    , m_desc(resource ? resource->GetDesc() : D3D12_RESOURCE_DESC{})
 {
-    //m_resource->AddRef();
+    m_resource->AddRef();
+}
+
+GraphicsResource::GraphicsResource(const wchar_t* name, D3D12_HEAP_TYPE heapType, D3D12_RESOURCE_STATES initialState, const D3D12_RESOURCE_DESC& desc, ID3D12Device* device)
+    : m_desc(desc)
+{
+    ThrowIfFailed(device->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(heapType),
+        D3D12_HEAP_FLAG_NONE,
+        &desc,
+        initialState,
+        nullptr, // clear value
+        IID_PPV_ARGS(&m_resource)));
+
+    m_resource->SetName(name);
 }
 
 void GraphicsResource::Release()
@@ -27,10 +41,22 @@ void GraphicsResource::operator=(GraphicsResource&& temp)
     temp.m_resource = nullptr;
 }
 
-void* GraphicsResource::Map(uint32_t subresource)
+void GraphicsResource::operator = (const GraphicsResource& cpy)
+{
+    Release();
+    memcpy(this, &cpy, sizeof(GraphicsResource));
+    m_resource->AddRef();
+}
+
+void* GraphicsResource::Map(bool writeonly, uint32_t subresource)
 {
     void* data;
-    ThrowIfFailed(m_resource->Map(subresource, nullptr, &data));
+
+    CD3DX12_RANGE readRange(0, 0);
+    if (!writeonly)
+        readRange.End = GetSizeInBytes();
+
+    ThrowIfFailed(m_resource->Map(subresource, &readRange, &data));
     return data;
 }
 
@@ -40,73 +66,37 @@ void GraphicsResource::Unmap(uint32_t subresource)
         m_resource->Unmap(subresource, nullptr);
 }
 
-GraphicsResource GraphicsResource::CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device5* device)
+GraphicsResource GraphicsResource::CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device* device)
 {
     const D3D12_RESOURCE_STATES initState = scratch ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
     size = Align<uint64_t>(size, scratch ? D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+    const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, 0);
 
-    ID3D12Resource* buffer;
-    ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, 0),
-        initState,
-        nullptr, // clear value
-        IID_PPV_ARGS(&buffer)));
-
-    buffer->SetName(name);
-
-    return GraphicsResource(buffer, size);
+    return GraphicsResource(name, D3D12_HEAP_TYPE_DEFAULT, initState, desc, device);
 }
 
-GraphicsResource GraphicsResource::CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device5* device)
+GraphicsResource GraphicsResource::CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device* device)
 {
-    ID3D12Resource* buffer;
-    ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE),
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr, // clear value
-        IID_PPV_ARGS(&buffer)));
-
-    buffer->SetName(name);
-
-    return GraphicsResource(buffer, size);
+    const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE);
+    return GraphicsResource(name, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, desc, device);
 }
 
-TextureResource::TextureResource(ID3D12Resource* resource, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels)
-    : GraphicsResource(resource, 0)
-    , m_format(format)
-    , m_width(width)
-    , m_height(height)
-    , m_mipLevels(mipLevels)
+GraphicsResource GraphicsResource::CreateReadbackBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device)
 {
+    const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE);
+    return GraphicsResource(name, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, desc, device);
 }
 
-void TextureResource::operator = (TextureResource&& temp)
-{
-    GraphicsResource::operator=(std::move(temp));
-    m_format = temp.m_format;
-    m_width = temp.m_width;
-    m_height = temp.m_height;
-    m_mipLevels = temp.m_mipLevels;
+uint64_t GraphicsResource::GetSizeInBytes() const
+{ 
+    return m_desc.Width * m_desc.Height * m_desc.DepthOrArraySize *
+        (m_desc.Format == DXGI_FORMAT_UNKNOWN ? 1 : GetBitsPerPixel(m_desc.Format) / 8);
 }
 
-TextureResource TextureResource::CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device5* device)
+TextureResource TextureResource::CreateTexture2D(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mipLevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initialState, ID3D12Device* device)
 {
-    ID3D12Resource* texture;
-    ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, mipLevels, 1, 0, flags),
-        initialState,
-        nullptr, // clear value
-        IID_PPV_ARGS(&texture)));
-
-    texture->SetName(name);
-
-    return TextureResource(texture, format, width, height, mipLevels);
+    const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, mipLevels, 1, 0, flags);
+    return TextureResource(name, D3D12_HEAP_TYPE_DEFAULT, initialState, desc, device);
 }
 
 uint32_t GetBitsPerPixel(DXGI_FORMAT fmt)

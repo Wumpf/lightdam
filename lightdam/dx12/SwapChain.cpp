@@ -102,9 +102,9 @@ void SwapChain::CreateBackbufferResources()
 
     for (UINT n = 0; n < BufferCount; n++)
     {
-        ID3D12Resource* backbuffer;
+        ComPtr<ID3D12Resource> backbuffer;
         ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&backbuffer)));
-        m_backbuffers[n] = TextureResource(backbuffer, swapChainDesc.Format, swapChainDesc.Width, swapChainDesc.Height, 1);
+        m_backbuffers[n] = TextureResource(backbuffer.Get());
         m_backbuffers[n]->SetName((std::wstring(L"Backbuffer ") + std::to_wstring(n)).c_str());
     }
 
