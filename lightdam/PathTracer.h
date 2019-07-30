@@ -27,6 +27,9 @@ public:
     // Returns descriptor handle for output texture, living in the descriptor heap used and set by the pathtracer.
     const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const     { return m_outputGPUDescriptorHandleSRV; }
 
+    // Returns output texture reosurce
+    const TextureResource& GetOutputTextureResource() const { return m_outputResource; }
+
     // Number of frames sent to the GPU == number of samples per Pixel.
     uint32_t GetFrameNumber() const { return m_frameNumber; }
 

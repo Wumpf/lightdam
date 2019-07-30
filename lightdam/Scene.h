@@ -66,7 +66,8 @@ public:
     const std::vector<Camera>& GetCameras() const { return m_cameras; }
 
     // Where the scene originated from.
-    const std::string& GetSceneFilePath() const { return m_originFilePath; }
+    const std::string& GetFilePath() const { return m_originFilePath; }
+    const std::string GetName() const;
 
 private:
 

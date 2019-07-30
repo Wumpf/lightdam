@@ -6,6 +6,7 @@
 #include "PathTracer.h"
 #include "ToneMapper.h"
 #include "ErrorHandling.h"
+#include "FrameCapture.h"
 
 #include <chrono>
 #include <iostream>
@@ -15,6 +16,7 @@
 
 #include <dxgi1_4.h>
 #include <dxgidebug.h>
+#include <fstream>
 
 #if defined(_DEBUG)
     #define USE_DEBUG_DEVICE
@@ -33,6 +35,7 @@ Application::Application(int argc, char** argv)
     m_window->GetSize(windowWidth, windowHeight);
     m_pathTracer.reset(new PathTracer(m_device.Get(), windowWidth, windowHeight));
     m_toneMapper.reset(new ToneMapper(m_device.Get()));
+    m_frameCapture.reset(new FrameCapture());
 
     m_activeCamera.SetDirection(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f));
     m_activeCamera.SetPosition(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f));
@@ -57,7 +60,7 @@ Application::~Application()
 {
     m_swapChain->WaitUntilGraphicsQueueProcessingDone();
 
-    m_commandList->Close();
+    //m_commandList->Close();
     m_commandList = nullptr;
     for (int i = 0; i < SwapChain::MaxFramesInFlight; ++i)
     {
@@ -101,6 +104,17 @@ void Application::Run()
         m_activeCamera.Update(lastFrameTime.count());
         RenderFrame();
 
+        if (m_frameCapture->GetHoldsUnsavedCopy())
+        {
+            std::string screenshotName;
+            int i = 0;
+            do
+            {
+                screenshotName = m_scene->GetName() + " (" + std::to_string(++i) + ").pfm";
+            } while (std::ifstream(screenshotName.c_str()));
+            m_frameCapture->GetStagingDataAndWriteToPfm(screenshotName);
+        }
+
         lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
     }
 }
@@ -118,6 +132,11 @@ void Application::LoadScene(const std::string& pbrtFileName)
     if (!m_scene->GetCameras().empty())
         m_activeCamera = m_scene->GetCameras().front();
     m_pathTracer->SetScene(*m_scene);
+}
+
+void Application::SaveHdrImage()
+{
+    m_frameCapture->CopyTextureToStaging(m_pathTracer->GetOutputTextureResource(), m_commandList.Get(), m_device.Get());
 }
 
 void Application::CreateDeviceAndSwapChain()

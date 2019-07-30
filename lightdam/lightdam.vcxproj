@@ -105,6 +105,7 @@
     <ClCompile Include="dx12\Shader.cpp" />
     <ClCompile Include="dx12\SwapChain.cpp" />
     <ClCompile Include="dx12\TopLevelAS.cpp" />
+    <ClCompile Include="FrameCapture.cpp" />
     <ClCompile Include="MathUtils.cpp" />
     <ClCompile Include="PathTracer.cpp" />
     <ClCompile Include="ErrorHandling.cpp" />
@@ -138,6 +139,7 @@
     <ClInclude Include="dx12\Shader.h" />
     <ClInclude Include="dx12\SwapChain.h" />
     <ClInclude Include="dx12\TopLevelAS.h" />
+    <ClInclude Include="FrameCapture.h" />
     <ClInclude Include="MathUtils.h" />
     <ClInclude Include="PathTracer.h" />
     <ClInclude Include="ErrorHandling.h" />

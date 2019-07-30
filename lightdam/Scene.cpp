@@ -119,6 +119,8 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
         {
             auto normal = normalTransformation * triangleShape->normal[vertexIdx];
+            if (triangleShape->reverseOrientation)
+                normal = -normal;
             vertexData[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
         }
     }
@@ -242,6 +244,13 @@ void Scene::CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5
     ID3D12CommandList* commandLists[] = { commandList.Get() };
     swapChain.GetGraphicsCommandQueue()->ExecuteCommandLists(1, commandLists);
     swapChain.WaitUntilGraphicsQueueProcessingDone();
+}
+
+const std::string Scene::GetName() const
+{
+    auto lastSlash = m_originFilePath.find_last_of("/\\");
+    auto lastDot = m_originFilePath.find_last_of('.');
+    return m_originFilePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
 }
 
 Scene::Scene()

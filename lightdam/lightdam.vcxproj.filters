@@ -55,6 +55,7 @@
       <Filter>dx12</Filter>
     </ClCompile>
     <ClCompile Include="MathUtils.cpp" />
+    <ClCompile Include="FrameCapture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -121,6 +122,7 @@
     <ClInclude Include="dx12\RootSignature.h">
       <Filter>dx12</Filter>
     </ClInclude>
+    <ClInclude Include="FrameCapture.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">

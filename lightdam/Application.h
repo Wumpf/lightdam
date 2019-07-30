@@ -18,6 +18,7 @@ public:
 
     void Run();
     void LoadScene(const std::string& pbrtFileName);
+    void SaveHdrImage();
 
     const class Scene& GetScene() const          { return *m_scene; }
     class PathTracer& GetPathTracer()            { return *m_pathTracer; }
@@ -39,6 +40,7 @@ private:
     std::unique_ptr<class Scene> m_scene;
     std::unique_ptr<class PathTracer> m_pathTracer;
     std::unique_ptr<class ToneMapper> m_toneMapper;
+    std::unique_ptr<class FrameCapture> m_frameCapture;
     ControllableCamera m_activeCamera;
     DirectoryWatcher m_shaderDirectoryWatcher;
 

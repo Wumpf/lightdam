@@ -69,6 +69,9 @@ void Gui::SetupUI(Application& application)
     ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average 120f)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
+    if (ImGui::Button("Save Screenshot"))
+        application.SaveHdrImage();
+
     if (ImGui::CollapsingHeader("PathTracer"))
     {
         PathTracer& pathTracer = application.GetPathTracer();
@@ -79,7 +82,7 @@ void Gui::SetupUI(Application& application)
     if (ImGui::CollapsingHeader("Scene"))
     {
         const Scene& scene = application.GetScene();
-        ImGui::LabelText("Active Scene", "%s", scene.GetSceneFilePath().c_str());
+        ImGui::LabelText("Active Scene", "%s", scene.GetFilePath().c_str());
         ImGui::LabelText("Number of Meshes", "%i", scene.GetMeshes().size());
         uint64_t totalTriangleCount = 0;
         for (const auto& mesh : scene.GetMeshes()) totalTriangleCount += mesh.indexCount / 3;
