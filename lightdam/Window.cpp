@@ -80,7 +80,19 @@ void Window::GetSize(uint32_t& width, uint32_t& height) const
 
 void Window::SetSize(uint32_t width, uint32_t height)
 {
-    SetWindowPos(m_hwnd, 0, 0, 0, (int)width, (int)height, SWP_NOMOVE | SWP_NOOWNERZORDER);
+    // via https://stackoverflow.com/a/29007252
+
+    // get size of window and the client area
+    RECT rc, rcClient;
+    GetWindowRect(m_hwnd, &rc);
+    GetClientRect(m_hwnd, &rcClient);
+
+    // calculate size of non-client area
+    int xExtra = rc.right - rc.left - rcClient.right;
+    int yExtra = rc.bottom - rc.top - rcClient.bottom;
+
+    // now resize based on desired client size
+    SetWindowPos(m_hwnd, 0, 0, 0, width + xExtra, height + yExtra, SWP_NOMOVE | SWP_NOOWNERZORDER);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
