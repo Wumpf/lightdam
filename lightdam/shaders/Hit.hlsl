@@ -44,12 +44,13 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     // TODO
-    float3 dirToLight = normalize(float3(2.0f, 1.0f, 4.0f)); // todo
+    float3 dirToLight = float3(-0.188620, 0.692312, 0.696510);//normalize(float3(1.0f, 1.0f, 1.0f)); // todo
+    float3 lightColor = float3(8.0f, 8.0f, 8.0f);
 
     float3 brdfLightSample = Diffuse / PI;
-    float pdfLightSample = 1.0f / PI_2;
+    float pdfLightSample = 1.0f; // PDF for directional light sampling is 1!
     float irradianceLightSample = saturate(dot(normal, dirToLight)) / pdfLightSample;
-    if (ShadowRay(worldPosition, dirToLight))
+    if (irradianceLightSample != 0.0f && ShadowRay(worldPosition, dirToLight))
         irradianceLightSample = 0.0f;
     
     payload.distance = RayTCurrent();
@@ -57,7 +58,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     uint remainingBounces;
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
     remainingBounces -= 1;
-    payload.radiance = pathThroughput * irradianceLightSample * brdfLightSample; // sample radiance contribution
+    payload.radiance = pathThroughput * irradianceLightSample * brdfLightSample * lightColor; // sample radiance contribution
     
     if (remainingBounces == 0)
     {
@@ -86,6 +87,6 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
     float3 U, V;
     CreateONB(normal, U, V);
-    float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal);
+    float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal); // todo: use low discrepancy sampling here!
     payload.nextRayDirection = PackDirection(nextRayDir);
 }
