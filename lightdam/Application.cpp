@@ -132,6 +132,14 @@ void Application::LoadScene(const std::string& pbrtFileName)
     if (!m_scene->GetCameras().empty())
         m_activeCamera = m_scene->GetCameras().front();
     m_pathTracer->SetScene(*m_scene);
+
+    uint32_t screenWidth, screenHeight;
+    m_scene->GetScreenSize(screenWidth, screenHeight);
+    if (screenWidth && screenHeight)
+    {
+        m_window->SetSize(screenWidth, screenHeight);
+        OnWindowResize();
+    }
 }
 
 void Application::SaveHdrImage()

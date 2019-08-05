@@ -64,6 +64,8 @@ public:
 
     // Cameras defined by the scene.
     const std::vector<Camera>& GetCameras() const { return m_cameras; }
+    // Retrieves the resolution setting defined by the scene. 0 if no resolution was defined.
+    void GetScreenSize(uint32_t& width, uint32_t& height) const { width = m_screenWidth; height = m_screenHeight; }
 
     // Where the scene originated from.
     const std::string& GetFilePath() const { return m_originFilePath; }
@@ -82,5 +84,6 @@ private:
 
     std::vector<Mesh> m_meshes;
     std::vector<Camera> m_cameras;
+    uint32_t m_screenWidth = 0;
+    uint32_t m_screenHeight = 0;
 };
-

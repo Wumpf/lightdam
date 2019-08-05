@@ -25,6 +25,7 @@ public:
     HWND GetHandle() const { return m_hwnd; }
 
     void GetSize(uint32_t& width, uint32_t& height) const;
+    void SetSize(uint32_t width, uint32_t height);
 
 private:
     friend LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

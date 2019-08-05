@@ -78,6 +78,11 @@ void Window::GetSize(uint32_t& width, uint32_t& height) const
     height = rect.bottom;
 }
 
+void Window::SetSize(uint32_t width, uint32_t height)
+{
+    SetWindowPos(m_hwnd, 0, 0, 0, (int)width, (int)height, SWP_NOMOVE | SWP_NOOWNERZORDER);
+}
+
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     auto window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
