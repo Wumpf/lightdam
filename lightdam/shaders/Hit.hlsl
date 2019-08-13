@@ -1,12 +1,12 @@
 #include "Common.hlsl"
 
-bool ShadowRay(float3 worldPosition, float3 dirToLight)
+bool ShadowRay(float3 worldPosition, float3 dirToLight, float lightDistance = DefaultRayTMax)
 {
     RayDesc shadowRay;
     shadowRay.Origin = worldPosition;
     shadowRay.Direction = dirToLight;
     shadowRay.TMin = DefaultRayTMin;
-    shadowRay.TMax = DefaultRayTMax;
+    shadowRay.TMax = lightDistance;
 
     ShadowHitInfo shadowPayLoad;
     shadowPayLoad.isHit = true;
@@ -25,7 +25,7 @@ bool ShadowRay(float3 worldPosition, float3 dirToLight)
     return shadowPayLoad.isHit;
 }
 
-#define RUSSIAN_ROULETTE
+//#define RUSSIAN_ROULETTE
 
 [shader("closesthit")]
 export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
@@ -43,27 +43,34 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         );
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
-    // TODO
-    float3 dirToLight = float3(-0.188620, 0.692312, 0.696510);//normalize(float3(1.0f, 1.0f, 1.0f)); // todo
-    float3 lightColor = float3(8.0f, 8.0f, 8.0f);
-
-    float3 brdfLightSample = Diffuse / PI;
-    float pdfLightSample = 1.0f; // PDF for directional light sampling is 1!
-    float irradianceLightSample = saturate(dot(normal, dirToLight)) / pdfLightSample;
-    if (irradianceLightSample != 0.0f && ShadowRay(worldPosition, dirToLight))
-        irradianceLightSample = 0.0f;
-    
-    payload.distance = RayTCurrent();
-
     uint remainingBounces;
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
     remainingBounces -= 1;
-    payload.radiance = pathThroughput * irradianceLightSample * brdfLightSample * lightColor; // sample radiance contribution
-    
-    if (remainingBounces == 0)
+    payload.distance = RayTCurrent();
+    payload.radiance = float3(0.0f, 0.0f, 0.0f);
+
+    for (int i=0; i<NUM_AREALIGHT_SAMPLES; ++i)
     {
-        payload.pathThroughput_remainingBounces.y = 0;
-        return;
+        float3 dirToLight = AreaLightSamples[i].Position - worldPosition;
+        float lightDistSq = dot(dirToLight, dirToLight);
+        dirToLight *= rsqrt(lightDistSq);
+
+        float surfaceCos = dot(dirToLight,normal);
+        if (surfaceCos <= 0.0f)
+            continue;
+        float lightSampleCos = dot(-dirToLight, AreaLightSamples[i].Normal);
+        if (lightSampleCos <= 0.0f)
+            continue;
+
+        // Hemispherical lambert emitter.
+        // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
+        // We factor this in last, to keep the scalar factors together (== multiplying by lightSampleCos)
+        float3 brdfLightSample = Diffuse / PI;
+        float irradianceLightSample = surfaceCos / lightDistSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
+        if (ShadowRay(worldPosition, dirToLight, sqrt(lightDistSq)))
+            irradianceLightSample = 0.0f;
+        
+        payload.radiance += (pathThroughput * irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
     }
 
     // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen

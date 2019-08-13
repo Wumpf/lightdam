@@ -72,7 +72,33 @@ std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5*
     return scene;
 }
 
-static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device)
+static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
+{
+    const auto firstNewAreaLightIdx = outAreaLights.size();
+    outAreaLights.resize(outAreaLights.size() + numTriangles);
+
+    float totalArea = 0.0f;
+    for (uint32_t triangleIdx = 0; triangleIdx < numTriangles; ++triangleIdx)
+    {
+        Scene::AreaLightTriangle& areaLightTriangle = outAreaLights[firstNewAreaLightIdx + triangleIdx];
+        areaLightTriangle.positions[0] = vertices[indices[triangleIdx * 3 + 0]].position;
+        areaLightTriangle.positions[1] = vertices[indices[triangleIdx * 3 + 1]].position;
+        areaLightTriangle.positions[2] = vertices[indices[triangleIdx * 3 + 2]].position;
+        areaLightTriangle.normals[0] = vertices[indices[triangleIdx * 3 + 0]].normal;
+        areaLightTriangle.normals[1] = vertices[indices[triangleIdx * 3 + 1]].normal;
+        areaLightTriangle.normals[2] = vertices[indices[triangleIdx * 3 + 2]].normal;
+        areaLightTriangle.area = (areaLightTriangle.positions[1] - areaLightTriangle.positions[0]).Cross(areaLightTriangle.positions[2] - areaLightTriangle.positions[0]).Length() * 0.5f;
+        totalArea += areaLightTriangle.area;
+    }
+
+    for (uint32_t triangleIdx = 0; triangleIdx < numTriangles; ++triangleIdx)
+    {
+        Scene::AreaLightTriangle& areaLightTriangle = outAreaLights[firstNewAreaLightIdx + triangleIdx];
+        areaLightTriangle.emittedRadiance = areaLightTriangle.area / totalArea * emittedRadiance;
+    }
+}
+
+static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, std::vector<Scene::AreaLightTriangle>& outAreaLights)
 {
     // TODO: Don't use upload heaps
     // todo: Handle material & textures
@@ -85,16 +111,6 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
     mesh.constantBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
     {
-        ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
-        Scene::Vertex* vertexData = (Scene::Vertex*)vertexBufferData.Get();
-        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
-        {
-            auto position = instance->xfm * triangleShape->vertex[vertexIdx];
-            vertexData[vertexIdx].position.x = position.x;
-            vertexData[vertexIdx].position.y = position.y;
-            vertexData[vertexIdx].position.z = position.z;
-        }
-
         // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
         if (triangleShape->normal.empty())
         {
@@ -116,13 +132,23 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         }
 
         auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
-        for (size_t vertexIdx = 0; vertexIdx < triangleShape->normal.size(); ++vertexIdx)
+        std::vector<Scene::Vertex> vertices(triangleShape->vertex.size());
+        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
         {
+            vertices[vertexIdx].position = PbrtVec3ToXMFloat3(instance->xfm * triangleShape->vertex[vertexIdx]);
             auto normal = normalTransformation * triangleShape->normal[vertexIdx];
-            if (triangleShape->reverseOrientation)
-                normal = -normal;
-            vertexData[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
+            if (triangleShape->reverseOrientation) normal = -normal;
+            vertices[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
         }
+
+        {
+            ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
+            memcpy(vertexBufferData.Get(), vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
+        }
+
+        pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
+        if (areaLight)
+            AddAreaLights(vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
     }
     {
         ScopedResourceMap indexBufferData(mesh.indexBuffer);
@@ -201,7 +227,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
             if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device));
+                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights));
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {

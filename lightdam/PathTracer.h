@@ -5,6 +5,7 @@
 #include "dx12/GraphicsResource.h"
 #include "dx12/DynamicConstantBuffer.h"
 #include "dx12/RaytracingShaderBindingTable.h"
+#include "LightSampler.h"
 #include "Camera.h"
 #include <random>
 
@@ -53,6 +54,10 @@ private:
 
     DynamicConstantBuffer m_frameConstantBuffer;
     Camera m_lastCamera;
+
+    DynamicConstantBuffer m_areaLightSamples;
+    static const uint32_t m_numAreaLightSamples = 8;
+    std::unique_ptr<class LightSampler> m_lightSampler;
 
     Shader m_rayGenLibrary;
     Shader m_hitLibrary;

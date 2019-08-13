@@ -56,6 +56,10 @@
     </ClCompile>
     <ClCompile Include="MathUtils.cpp" />
     <ClCompile Include="FrameCapture.cpp" />
+    <ClCompile Include="LightSampler.cpp" />
+    <ClCompile Include="..\external\SimpleMath.cpp">
+      <Filter>external</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -114,8 +118,6 @@
       <Filter>dx12</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="..\external\d3dx12.h" />
-    <ClInclude Include="..\external\dxcapi.use.h" />
     <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="StringConversion.h" />
     <ClInclude Include="ToneMapper.h" />
@@ -123,6 +125,16 @@
       <Filter>dx12</Filter>
     </ClInclude>
     <ClInclude Include="FrameCapture.h" />
+    <ClInclude Include="LightSampler.h" />
+    <ClInclude Include="..\external\dxcapi.use.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\d3dx12.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\SimpleMath.h">
+      <Filter>external</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -171,5 +183,10 @@
     <CopyFileToFolders Include="shaders\Random.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\external\SimpleMath.inl">
+      <Filter>external</Filter>
+    </None>
   </ItemGroup>
 </Project>

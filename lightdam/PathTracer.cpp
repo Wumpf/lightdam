@@ -15,9 +15,9 @@
 #include "ErrorHandling.h"
 #include "MathUtils.h"
 #include "Camera.h"
+#include "LightSampler.h"
 
 #include "../external/d3dx12.h"
-
 
 struct GlobalConstants
 {
@@ -37,6 +37,7 @@ PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t out
     : m_device(device)
     , m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
     , m_frameConstantBuffer(L"FrameConstants", device, sizeof(GlobalConstants))
+    , m_areaLightSamples(L"AreaLightSamples", device, sizeof(LightSampler::LightSample) * m_numAreaLightSamples)
     , m_frameNumber(0)
     , m_randomGenerator(randomSeed)
 {
@@ -70,6 +71,7 @@ void PathTracer::SetScene(Scene& scene)
     CreateRootSignatures((uint32_t)scene.GetMeshes().size());
     CreateRaytracingPipelineObject();
     CreateShaderBindingTable(scene);
+    m_lightSampler.reset(new LightSampler(scene.GetAreaLights()));
 }
 
 void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera)
@@ -89,6 +91,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     globalConstants->GlobalJitter.y = ComputeHaltonSequence(m_frameNumber, 1);
     globalConstants->FrameNumber = m_frameNumber;
     globalConstants->FrameSeed = m_randomGenerator();
+    m_lightSampler->GenerateRandomSamples(m_frameNumber, m_areaLightSamples.GetData<LightSampler::LightSample>(frameIndex), m_numAreaLightSamples);
 
     // Transition output buffer from copy to unordered access - assume it starts as pixel shader resource.
     CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_outputResource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -99,8 +102,9 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     commandList->SetDescriptorHeaps(_countof(heaps), heaps);
     commandList->SetComputeRootSignature(m_globalRootSignature.Get());
     commandList->SetComputeRootConstantBufferView(0, m_frameConstantBuffer.GetGPUAddress(frameIndex));
+    commandList->SetComputeRootConstantBufferView(1, m_areaLightSamples.GetGPUAddress(frameIndex));
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(m_staticDescriptorHeap->GetGPUDescriptorHandleForHeapStart(), 1, m_descriptorHeapIncrementSize); // skip first entry == output srv
-    commandList->SetComputeRootDescriptorTable(1, cbvHandle);
+    commandList->SetComputeRootDescriptorTable(2, cbvHandle);
 
     // Setup raytracing task
     commandList->SetPipelineState1(m_raytracingPipelineObject.Get());
@@ -248,7 +252,7 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes)
 {
     // Global root signature
     {
-        CD3DX12_ROOT_PARAMETER1 params[2] = {};
+        CD3DX12_ROOT_PARAMETER1 params[3] = {};
         CD3DX12_DESCRIPTOR_RANGE1 descriptorRanges[] =
         {
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE),                    // Output buffer in u0,space0
@@ -257,7 +261,8 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes)
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumMeshes, 0, 101, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),         // Index buffers
         };
         params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);  // Global constant buffer at b0
-        params[1].InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
+        params[1].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);  // Area light sample constant buffer at b1
+        params[2].InitAsDescriptorTable(_countof(descriptorRanges), descriptorRanges);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params);
         m_globalRootSignature = CreateRootSignature(L"PathTracerGlobalRootSig", m_device.Get(), rootSignatureDesc);
     }
@@ -269,7 +274,7 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes)
     // Hit local root signature.
     {
         CD3DX12_ROOT_PARAMETER1 params[1];
-        params[0].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Constant buffer at b1
+        params[0].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Constant buffer at b2
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
         m_signatureSceneData = CreateRootSignature(L"SceneData", m_device.Get(), rootSignatureDesc);
     }

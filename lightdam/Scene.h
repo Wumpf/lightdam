@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dx12/GraphicsResource.h"
+#include "../external/SimpleMath.h"
 #include "Camera.h"
 #include <memory>
 #include <vector>
@@ -36,8 +37,9 @@ public:
     // Exact vertex format used by all vertices in Mesh.
     struct Vertex
     {
-        DirectX::XMFLOAT3 position;
-        DirectX::XMFLOAT3 normal;
+        DirectX::SimpleMath::Vector3 position; // todo: unnecessary for hit shader
+        DirectX::SimpleMath::Vector3 normal;
+        // todo: texcoord missing
     };
 
     // Exact constant buffer format used by all meshes.
@@ -47,19 +49,16 @@ public:
         DirectX::XMFLOAT3 Diffuse;
     };
 
-    // TODO
-    //struct LightSource
-    //{
-    //    // todo: Support more light sources!
-
-    //    // Direction for directional light source.
-    //    DirectX::XMFLOAT4 direction; // xyz vector
-
-    //    // Total radiance emmitted by the light.
-    //    DirectX::XMFLOAT4 radiance;  // rgb spectrum
-    //};
+    struct AreaLightTriangle
+    {
+        DirectX::SimpleMath::Vector3 positions[3];
+        DirectX::SimpleMath::Vector3 normals[3];
+        DirectX::SimpleMath::Vector3 emittedRadiance;
+        float area;
+    };
 
     const std::vector<Mesh>& GetMeshes() const                  { return m_meshes; }
+    const std::vector<AreaLightTriangle>& GetAreaLights() const { return m_areaLights; }
     const TopLevelAS& GetTopLevelAccellerationStructure() const { return *m_tlas; }
 
     // Cameras defined by the scene.
@@ -83,6 +82,7 @@ private:
     std::vector<std::unique_ptr<class BottomLevelAS>> m_blas;
 
     std::vector<Mesh> m_meshes;
+    std::vector<AreaLightTriangle> m_areaLights;
     std::vector<Camera> m_cameras;
     uint32_t m_screenWidth = 0;
     uint32_t m_screenHeight = 0;
