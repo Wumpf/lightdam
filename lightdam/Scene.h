@@ -53,7 +53,7 @@ public:
     {
         DirectX::SimpleMath::Vector3 positions[3];
         DirectX::SimpleMath::Vector3 normals[3];
-        DirectX::SimpleMath::Vector3 emittedRadiance;
+        DirectX::SimpleMath::Vector3 emittedRadiance; // The amount of emitted radiance at each point and emitted direction. (this is a 
         float area;
     };
 

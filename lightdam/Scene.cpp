@@ -88,13 +88,8 @@ static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t n
         areaLightTriangle.normals[1] = vertices[indices[triangleIdx * 3 + 1]].normal;
         areaLightTriangle.normals[2] = vertices[indices[triangleIdx * 3 + 2]].normal;
         areaLightTriangle.area = (areaLightTriangle.positions[1] - areaLightTriangle.positions[0]).Cross(areaLightTriangle.positions[2] - areaLightTriangle.positions[0]).Length() * 0.5f;
+        areaLightTriangle.emittedRadiance = emittedRadiance;
         totalArea += areaLightTriangle.area;
-    }
-
-    for (uint32_t triangleIdx = 0; triangleIdx < numTriangles; ++triangleIdx)
-    {
-        Scene::AreaLightTriangle& areaLightTriangle = outAreaLights[firstNewAreaLightIdx + triangleIdx];
-        areaLightTriangle.emittedRadiance = areaLightTriangle.area / totalArea * emittedRadiance;
     }
 }
 
