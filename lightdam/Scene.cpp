@@ -201,8 +201,8 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
     scene->m_originFilePath = pbrtFilePath;
     if (pbrtScene->film)
     {
-        scene->m_screenHeight = (uint32_t)pbrtScene->film->resolution.x;
-        scene->m_screenWidth = (uint32_t)pbrtScene->film->resolution.y;
+        scene->m_screenHeight = (uint32_t)pbrtScene->film->resolution.y;
+        scene->m_screenWidth = (uint32_t)pbrtScene->film->resolution.x;
     }
 
     for (const auto& pbrtCamera : pbrtScene->cameras)
