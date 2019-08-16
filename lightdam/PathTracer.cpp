@@ -74,6 +74,12 @@ void PathTracer::SetScene(Scene& scene)
     m_lightSampler.reset(new LightSampler(scene.GetAreaLights()));
 }
 
+void PathTracer::SetDescriptorHeap(ID3D12GraphicsCommandList4* commandList)
+{
+    ID3D12DescriptorHeap* heaps[] = { m_staticDescriptorHeap.Get() };
+    commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+}
+
 void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera)
 {
     if (m_lastCamera != activeCamera)
@@ -98,8 +104,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     commandList->ResourceBarrier(1, &transition);
 
     // Setup global resources.
-    ID3D12DescriptorHeap* heaps[] = { m_staticDescriptorHeap.Get() };
-    commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+    SetDescriptorHeap(commandList);
     commandList->SetComputeRootSignature(m_globalRootSignature.Get());
     commandList->SetComputeRootConstantBufferView(0, m_frameConstantBuffer.GetGPUAddress(frameIndex));
     commandList->SetComputeRootConstantBufferView(1, m_areaLightSamples.GetGPUAddress(frameIndex));

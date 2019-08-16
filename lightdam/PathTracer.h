@@ -26,7 +26,8 @@ public:
     void DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera);
 
     // Returns descriptor handle for output texture, living in the descriptor heap used and set by the pathtracer.
-    const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const     { return m_outputGPUDescriptorHandleSRV; }
+    const D3D12_GPU_DESCRIPTOR_HANDLE& GetOutputTextureDescHandle() const { return m_outputGPUDescriptorHandleSRV; }
+    void SetDescriptorHeap(ID3D12GraphicsCommandList4* commandList);
 
     // Returns output texture reosurce
     const TextureResource& GetOutputTextureResource() const { return m_outputResource; }

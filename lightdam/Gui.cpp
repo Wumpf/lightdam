@@ -75,6 +75,21 @@ void Gui::SetupUI(Application& application)
     if (ImGui::CollapsingHeader("PathTracer"))
     {
         PathTracer& pathTracer = application.GetPathTracer();
+
+        const char* renderingModeLabels[] =
+        {
+            "Progressive Continuous",
+            "Progressive Manual",
+        };
+        int currentItem = (int)application.GetRenderingMode();
+        ImGui::Combo("Rendering Mode", &currentItem, renderingModeLabels, _countof(renderingModeLabels));
+        application.SetRenderingMode((Application::RenderingMode)currentItem);
+        if (application.GetRenderingMode() == Application::RenderingMode::ProgressiveManual)
+        {
+            if (ImGui::Button("Render Single Iteration"))
+                application.QueueSingleRenderIteration();
+        }
+
         ImGui::LabelText("Samples per Pixel", "%i", pathTracer.GetFrameNumber());
         if (ImGui::Button("Restart Sampling"))
             pathTracer.RestartSampling();

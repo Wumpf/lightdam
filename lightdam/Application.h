@@ -13,6 +13,12 @@ using namespace Microsoft::WRL;
 class Application
 {
 public:
+    enum class RenderingMode
+    {
+        ProgressiveContinous,
+        ProgressiveManual,
+    };
+
     Application(int argc, char** argv);
     ~Application();
 
@@ -23,6 +29,10 @@ public:
     const class Scene& GetScene() const          { return *m_scene; }
     class PathTracer& GetPathTracer()            { return *m_pathTracer; }
     class ControllableCamera& GetActiveCamera()  { return m_activeCamera; }
+    
+    RenderingMode GetRenderingMode() const       { return m_renderingMode; }
+    void SetRenderingMode(RenderingMode newMode) { m_renderingMode = newMode; }
+    void QueueSingleRenderIteration()            { m_iterationQueued = true; }
 
 private:
     void CreateDeviceAndSwapChain();
@@ -48,4 +58,7 @@ private:
     ComPtr<struct ID3D12GraphicsCommandList4> m_commandList;
 
     ComPtr<struct ID3D12Device5>             m_device;
+
+    RenderingMode m_renderingMode = RenderingMode::ProgressiveContinous;
+    bool m_iterationQueued = false;
 };

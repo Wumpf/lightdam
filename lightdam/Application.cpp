@@ -112,7 +112,7 @@ void Application::Run()
             int i = 0;
             do
             {
-                screenshotName = m_scene->GetName() + " (" + std::to_string(++i) + ").pfm";
+                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations).pfm";
             } while (std::ifstream(screenshotName.c_str()));
             m_frameCapture->GetStagingDataAndWriteToPfm(screenshotName);
         }
@@ -256,7 +256,11 @@ void Application::PopulateCommandList()
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
-    m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera);
+    if (m_renderingMode == RenderingMode::ProgressiveContinous || m_iterationQueued)
+        m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera);
+    else
+        m_pathTracer->SetDescriptorHeap(m_commandList.Get());
+    m_iterationQueued = false;
     m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
     m_gui->Draw(*this, m_commandList.Get());
 
