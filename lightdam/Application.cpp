@@ -106,6 +106,8 @@ void Application::Run()
 
         if (m_frameCapture->GetHoldsUnsavedCopy())
         {
+            m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+
             std::string screenshotName;
             int i = 0;
             do
