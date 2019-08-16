@@ -25,7 +25,7 @@ bool Camera::operator ==(const Camera& camera)
         XMVector3Equal(m_position, camera.m_position) &&
         XMVector3Equal(m_direction, camera.m_direction) &&
         XMVector3Equal(m_up, camera.m_up) &&
-        m_vFovRad == camera.m_vFovRad;
+        m_fovRad == camera.m_fovRad;
 }
 
 void Camera::SnapUpToAxis()
@@ -52,10 +52,16 @@ void Camera::ComputeCameraParams(float aspectRatio, XMVECTOR& cameraU, XMVECTOR&
     cameraW = m_direction;
     cameraU = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(cameraW, m_up));
     cameraV = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(cameraW, cameraU));
+    
 
-    float f = (float)tan(m_vFovRad * 0.5f);
-    cameraU *= f * aspectRatio;
+    float f = (float)tan(m_fovRad * 0.5f);
+    cameraU *= f;
     cameraV *= f;
+
+    if (aspectRatio > 1.0f)
+        cameraU *= aspectRatio;
+    else
+        cameraV /= aspectRatio;
 }
 
 static inline bool IsKeyDown(int keyCode)
