@@ -24,6 +24,9 @@ LightSampler::LightSampler(const std::vector<Scene::AreaLightTriangle>& triangle
 
 void LightSampler::GenerateRandomSamples(int samplingSeed, LightSample* destinationBuffer, uint32_t numSamples, float positionOffsetFromAreaLightTriangle)
 {
+    if (m_areaLights.empty())
+        return;
+
     float sampleWeight = m_totalAreaLightArea / numSamples;
 
     for (uint32_t i = 0; i < numSamples; ++i)
