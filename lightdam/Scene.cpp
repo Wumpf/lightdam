@@ -154,7 +154,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         auto constants = (Scene::MeshConstants*)contextBufferData.Get();
         constants->MeshIndex = index;
         const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
-        if (triangleShape->material)
+        if (matteMaterial)
             constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
         else
             constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
