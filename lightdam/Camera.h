@@ -23,7 +23,7 @@ public:
     DirectX::FXMVECTOR GetPosition() const   { return m_position; }
     DirectX::FXMVECTOR GetDirection() const  { return m_direction; }
     DirectX::FXMVECTOR GetUp() const         { return m_up; }
-    float GetFovRad() const                 { return m_fovRad; }
+    float GetFovRad() const                  { return m_fovRad; }
 
     void ComputeCameraParams(float aspectRatio, DirectX::XMVECTOR& cameraU, DirectX::XMVECTOR& cameraV, DirectX::XMVECTOR& cameraW) const;
 
