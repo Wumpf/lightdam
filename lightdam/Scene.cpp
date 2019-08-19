@@ -117,7 +117,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
                 auto v1 = triangleShape->vertex[triangle.x];
                 auto v2 = triangleShape->vertex[triangle.y];
                 auto v3 = triangleShape->vertex[triangle.z];
-                auto triangleNormal = pbrt::math::cross(v1 - v3, v2 - v3);
+                auto triangleNormal = pbrt::math::cross(v2 - v1, v3 - v1);
                 triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
                 triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
                 triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
@@ -131,9 +131,10 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
         {
             vertices[vertexIdx].position = PbrtVec3ToXMFloat3(instance->xfm * triangleShape->vertex[vertexIdx]);
-            auto normal = normalTransformation * triangleShape->normal[vertexIdx];
-            if (triangleShape->reverseOrientation) normal = -normal;
-            vertices[vertexIdx].normal = PbrtVec3ToXMFloat3(normal);
+            auto normal = triangleShape->normal[vertexIdx];
+            if (triangleShape->reverseOrientation)
+                normal = -normal;
+            vertices[vertexIdx].normal = PbrtVec3ToXMFloat3(normalTransformation * normal);
         }
 
         {

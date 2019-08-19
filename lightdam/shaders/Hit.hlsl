@@ -41,6 +41,8 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
             VertexBuffers[MeshIndex][vertexIdx1].normal,
             VertexBuffers[MeshIndex][vertexIdx2].normal, barycentrics)
         );
+    [flatten] if (HitKind() == HIT_KIND_TRIANGLE_BACK_FACE)
+        normal = -normal;
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     uint remainingBounces;
@@ -48,6 +50,12 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     remainingBounces -= 1;
     payload.distance = RayTCurrent();
     payload.radiance = float3(0.0f, 0.0f, 0.0f);
+
+#ifdef DEBUG_VISUALIZE_NORMALS
+    payload.radiance = normal * 0.5 + float3(0.5f,0.5f,0.5f);
+    payload.pathThroughput_remainingBounces.y = 0;
+    return;
+#endif
 
     for (int i=0; i<NUM_AREALIGHT_SAMPLES; ++i)
     {

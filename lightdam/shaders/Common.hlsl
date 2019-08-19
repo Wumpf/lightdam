@@ -78,3 +78,5 @@ RWTexture2D<float4> gOutput : register(u0, space0);
 
 #define DefaultRayTMin 0.00001f
 #define DefaultRayTMax 100000.0f
+
+//#define DEBUG_VISUALIZE_NORMALS

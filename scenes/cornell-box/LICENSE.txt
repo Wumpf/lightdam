@@ -8,9 +8,3 @@ attribution. However, crediting the artist is encouraged.
 
 For more information about the license, please see
 https://creativecommons.org/publicdomain/zero/1.0/
-
-
-
----------
-AndreasR:
-Back, left and right walls seemed to have wrong normals, flipped them.
