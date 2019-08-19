@@ -154,11 +154,13 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         ScopedResourceMap contextBufferData(mesh.constantBuffer);
         auto constants = (Scene::MeshConstants*)contextBufferData.Get();
         constants->MeshIndex = index;
-        const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
-        if (matteMaterial)
-            constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
-        else
-            constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
+        constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
+        if (triangleShape->material)
+        {
+            const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
+            if (matteMaterial)
+                constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
+        }
     }
 
     return mesh;
