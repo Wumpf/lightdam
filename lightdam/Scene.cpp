@@ -181,8 +181,9 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         }
         catch (std::exception& exception)
         {
-            std::cout << "Failed to load scene from pbf: " << exception.what() << std::endl;
+            LogPrint(LogLevel::Failure, "Failed to load scene from pbf: %s", exception.what());
         }
+        LogPrint(LogLevel::Success, "Successfully imported pbrt scene from pbf (%s)", pbrtFilePath.c_str());
     }
     else
     {
@@ -192,15 +193,20 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
         }
         catch (std::exception& exception)
         {
-            std::cout << "Failed to load scene from pbrt: " << exception.what() << std::endl;
+            LogPrint(LogLevel::Failure, "Failed to load scene from pbrt: %s", exception.what());
         }
+        LogPrint(LogLevel::Success, "Successfully imported pbrt scene from pbrt (%s)", pbrtFilePath.c_str());
     }
 
     if (!pbrtScene)
         return nullptr;
+    LogPrint(LogLevel::Info, "Flattening scene...");
     pbrtScene->makeSingleLevel();
 
     auto scene = std::unique_ptr<Scene>(new Scene());
+
+    LogPrint(LogLevel::Info, "Importing...");
+
     scene->m_originFilePath = pbrtFilePath;
     if (pbrtScene->film)
     {
@@ -234,7 +240,10 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
     }
 
     if (!pbfFileExists)
+    {
+        LogPrint(LogLevel::Info, "Saving pbf file...");
         pbrtScene->saveTo(pbfFilePath);
+    }
 
 
     // todo: be clever about BLAS/TLAS instances
@@ -242,8 +251,10 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
     //scene->m_meshes.resize(1);
     //CreateTestTriangle(scene->m_meshes.back(), device);
 
+    LogPrint(LogLevel::Info, "Creating accelleration datastructure...");
     scene->CreateAccellerationDataStructure(swapChain, device);
 
+    LogPrint(LogLevel::Success, "Successfully loaded scene");
     return scene;
 }
 

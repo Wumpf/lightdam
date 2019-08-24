@@ -8,9 +8,6 @@
 #include <sstream>
 #include <vector>
 
-// todo: better logging?
-#include <iostream>
-
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
@@ -114,7 +111,7 @@ bool Shader::ReplaceShaderOnSuccessfulCompileFromFile(Type type, const wchar_t* 
     catch (const std::runtime_error& exception)
     {
         if (throwOnFailure) throw;
-        std::cout << exception.what() << std::endl;
+        LogPrint(LogLevel::Failure, exception.what());
         return false;
     }
     shaderToReplace = std::move(newShader);

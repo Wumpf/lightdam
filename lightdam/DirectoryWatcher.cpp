@@ -1,7 +1,7 @@
 #include "DirectoryWatcher.h"
 #include "StringConversion.h"
+#include "ErrorHandling.h"
 #include <Windows.h>
-#include <iostream>
 
 DirectoryWatcher::DirectoryWatcher(const wchar_t* directoryPath)
 {
@@ -23,7 +23,7 @@ bool DirectoryWatcher::HasDirectoryFileChangesSinceLastCheck()
     if (WaitForSingleObject(m_watcherHandle, 0) == WAIT_OBJECT_0)
     {
         if (FindNextChangeNotification(m_watcherHandle) == FALSE)
-            std::cerr << "Failed to continue directory watching.";
+            LogPrint(LogLevel::Failure, "Failed to continue directory watching.");
         return true;
     }
     else

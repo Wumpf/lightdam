@@ -9,7 +9,6 @@
 #include "FrameCapture.h"
 
 #include <chrono>
-#include <iostream>
 
 #include <dxgi1_6.h>
 #include "../external/d3dx12.h"
@@ -92,11 +91,11 @@ void Application::Run()
 
         if (m_shaderDirectoryWatcher.HasDirectoryFileChangesSinceLastCheck())
         {
-            std::cout << "Reloading shaders ..." << std::endl;
+            LogPrint(LogLevel::Info, "Reloading shaders ...");
             m_swapChain->WaitUntilGraphicsQueueProcessingDone();
             m_pathTracer->ReloadShaders();
             m_toneMapper->ReloadShaders();
-            std::cout << "... done reloading shaders" << std::endl;
+            LogPrint(LogLevel::Info, "... done reloading shaders");
         }
 
         m_swapChain->BeginFrame();

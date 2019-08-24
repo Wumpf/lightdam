@@ -25,3 +25,24 @@ inline void ThrowIfFailed(HRESULT hr)
     if (FAILED(hr))
         throw HResultException(hr);
 }
+
+enum class LogLevel
+{
+    Info,
+    Success,
+    Failure
+};
+
+namespace detail
+{
+    void LogPrint(LogLevel logLevel, const char* message);
+}
+
+template<typename ...Args>
+inline void LogPrint(LogLevel logLevel, const char* format, Args&&... args)
+{
+    char buffer[1024];
+    sprintf_s(buffer, format, args...);
+    strcat_s(buffer, "\n");
+    detail::LogPrint(logLevel, buffer);
+}

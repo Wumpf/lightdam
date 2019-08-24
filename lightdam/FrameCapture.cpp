@@ -1,6 +1,6 @@
 #include "FrameCapture.h"
+#include "ErrorHandling.h"
 #include <fstream>
-#include <iostream>
 #include "../external/d3dx12.h"
 
 static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const std::string& filename)
@@ -29,7 +29,7 @@ static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const s
     }
     else
     {
-        std::cout << "Error writing hdr image to " << filename.c_str() << std::endl;
+        LogPrint(LogLevel::Failure, "Error writing hdr image to %s", filename.c_str());
         return false;
     }
 }

@@ -4,7 +4,6 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
-#include <iostream>
 
 #include <DirectXMath.h>
 

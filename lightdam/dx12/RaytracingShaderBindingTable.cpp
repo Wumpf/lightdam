@@ -1,6 +1,8 @@
 #include "RaytracingShaderBindingTable.h"
 #include "../MathUtils.h"
+#include "../StringConversion.h"
 #include <algorithm>
+#include <stdexcept>
 
 void RaytracingShaderBindingTable::DispatchRays(ID3D12GraphicsCommandList4* commandList, uint32_t width, uint32_t height, uint32_t depth)
 {
@@ -92,7 +94,7 @@ void RaytracingBindingTableGenerator::Entry::CopyData(ID3D12StateObjectPropertie
     if (!id)
     {
         std::wstring errMsg(std::wstring(L"Unknown shader identifier used in the SBT: ") + programEntryPoint);
-        throw errMsg;// std::logic_error(std::string(errMsg.begin(), errMsg.end())); // TODO
+        throw std::logic_error(Utf16toUtf8(errMsg)); // TODO
     }
     memcpy(destRecords, id, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
     memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, inputData.data(), inputData.size() * sizeof(uint64_t));
