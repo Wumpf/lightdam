@@ -94,7 +94,7 @@ void RaytracingBindingTableGenerator::Entry::CopyData(ID3D12StateObjectPropertie
     if (!id)
     {
         std::wstring errMsg(std::wstring(L"Unknown shader identifier used in the SBT: ") + programEntryPoint);
-        throw std::logic_error(Utf16toUtf8(errMsg)); // TODO
+        throw std::logic_error(Utf16toUtf8(errMsg));
     }
     memcpy(destRecords, id, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
     memcpy(destRecords + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES, inputData.data(), inputData.size() * sizeof(uint64_t));

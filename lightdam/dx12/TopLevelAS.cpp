@@ -33,7 +33,7 @@ std::unique_ptr<TopLevelAS> TopLevelAS::Generate(const std::vector<BottomLevelAS
         instanceDescs[i].InstanceID = i;    // Instance ID visible in the shader
         instanceDescs[i].InstanceContributionToHitGroupIndex = 0; // Index of the hit group invoked upon intersection. Unused right now. Good value would be number of meshes in all blas until this point.
         instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE;
-        DirectX::XMMATRIX m = XMMatrixTranspose(blasInstances[i].transform); // GLM is column major, the INSTANCE_DESC is row major. TODO NEED THIS??
+        DirectX::XMMATRIX m = XMMatrixTranspose(blasInstances[i].transform); // GLM is column major, the INSTANCE_DESC is row major.
         memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
         instanceDescs[i].AccelerationStructure = blasInstances[i].blas->GetGPUAddress();
         instanceDescs[i].InstanceMask = 0xFF; // always visible
