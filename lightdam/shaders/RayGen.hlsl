@@ -13,9 +13,8 @@ void TraceRadianceRay(in RayDesc ray, inout RadianceRayHitInfo payload)
 }
 
 #ifdef DEBUG_VISUALIZE_NORMALS
+    #undef NUM_BOUNCES
     #define NUM_BOUNCES 1
-#else
-    #define NUM_BOUNCES 5
 #endif
 
 [shader("raygeneration")]

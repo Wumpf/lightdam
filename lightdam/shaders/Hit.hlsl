@@ -25,8 +25,6 @@ bool ShadowRay(float3 worldPosition, float3 dirToLight, float lightDistance = De
     return shadowPayLoad.isHit;
 }
 
-//#define RUSSIAN_ROULETTE
-
 [shader("closesthit")]
 export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 {

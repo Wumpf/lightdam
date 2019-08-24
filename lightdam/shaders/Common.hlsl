@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.hlsl"
 #include "Math.hlsl"
 #include "Random.hlsl"
 
@@ -39,10 +40,6 @@ cbuffer GlobalConstants : register(b0)
     uint FrameSeed; // A single random number for every frame!
 };
 
-// todo: should these numbers be customizable?
-#define NUM_LIGHT_SAMPLES_AVAILABLE 32  // Number of light samples that we provide every frame
-#define NUM_LIGHT_SAMPLES_PERHIT    4   // Number of light samples that we take on every hit
-
 struct AreaLightSample
 {
     float3 Position;
@@ -79,5 +76,3 @@ RWTexture2D<float4> gOutput : register(u0, space0);
 
 #define DefaultRayTMin 0.00001f
 #define DefaultRayTMax 100000.0f
-
-//#define DEBUG_VISUALIZE_NORMALS
