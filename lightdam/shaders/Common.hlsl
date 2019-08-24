@@ -39,8 +39,9 @@ cbuffer GlobalConstants : register(b0)
     uint FrameSeed; // A single random number for every frame!
 };
 
-// todo: should this number be customizable?
-#define NUM_AREALIGHT_SAMPLES 8
+// todo: should these numbers be customizable?
+#define NUM_LIGHT_SAMPLES_AVAILABLE 32  // Number of light samples that we provide every frame
+#define NUM_LIGHT_SAMPLES_PERHIT    4   // Number of light samples that we take on every hit
 
 struct AreaLightSample
 {
@@ -54,7 +55,7 @@ struct AreaLightSample
 
 cbuffer AreaLightSamples_ : register(b1)
 {
-    AreaLightSample AreaLightSamples[NUM_AREALIGHT_SAMPLES];
+    AreaLightSample AreaLightSamples[NUM_LIGHT_SAMPLES_AVAILABLE];
 }
 
 cbuffer MeshConstants : register (b2)

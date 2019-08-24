@@ -13,7 +13,6 @@ A DXR toy raytracer named after the light dams mentioned in Terry Prattchett's C
     * specular/more materials
     * support lights other than area lights [...]
     * sampling
-        * better/configurable light sampling - biggest problem now is that every hit is sampling the same light samples, means longer convergence
         * fix color of area light surfaces
         * simple MIS for next event estimation & direct hits
     * other light transport algorithms

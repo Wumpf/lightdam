@@ -57,7 +57,7 @@ private:
     Camera m_lastCamera;
 
     DynamicConstantBuffer m_areaLightSamples;
-    static const uint32_t m_numAreaLightSamples = 8;
+    static const uint32_t m_numAreaLightSamples = 32;
     std::unique_ptr<class LightSampler> m_lightSampler;
 
     Shader m_rayGenLibrary;

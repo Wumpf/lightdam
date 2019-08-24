@@ -57,7 +57,8 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     return;
 #endif
 
-    for (int i=0; i<NUM_AREALIGHT_SAMPLES; ++i)
+    uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
+    for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
     {
         float3 dirToLight = AreaLightSamples[i].Position - worldPosition;
         float lightDistSq = dot(dirToLight, dirToLight);
@@ -80,6 +81,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         
         payload.radiance += (pathThroughput * irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
     }
+    payload.radiance /= NUM_LIGHT_SAMPLES_PERHIT;
 
     // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI

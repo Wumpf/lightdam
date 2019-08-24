@@ -27,7 +27,8 @@ void LightSampler::GenerateRandomSamples(int samplingSeed, LightSample* destinat
     if (m_areaLights.empty())
         return;
 
-    float sampleWeight = m_totalAreaLightArea / numSamples;
+    // We're not dividing by the number of samples, since we don't know how many samples we will evaluate in our shader.
+    float sampleWeight = m_totalAreaLightArea; // / numSamples;
 
     for (uint32_t i = 0; i < numSamples; ++i)
     {
