@@ -8,24 +8,11 @@
 #include <cassert>
 
 SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12Device* device)
-    : m_frameIndex(0)
-    , m_nextFenceSignal(1)
-    , m_lastSignaledFenceValues{}
+    : m_graphicsCommandQueue(device, L"SwapChain graphics queue")
+    , m_frameIndex(0)
+    , m_bufferIndex(0)
+    , m_frameExecutionIndices{}
 {
-    // Create synchronization objects.
-    ThrowIfFailed(device->CreateFence(m_lastSignaledFenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-    m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    if (m_fenceEvent == nullptr)
-    {
-        ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-    }
-
-    // Describe and create the graphics queue.
-    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    ThrowIfFailed(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_graphicsCommandQueue)));
-
     // Create swapchain
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.BufferCount = BufferCount;
@@ -42,7 +29,6 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     // (this is unlike pre-FLIP where tearing was the only way to run at a higher framerate than the screen)
     //BOOL allowTearing = FALSE;
     //auto result = dxgiFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
-
 
     ComPtr<IDXGISwapChain1> swapChain;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(
@@ -70,13 +56,11 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
 
 SwapChain::~SwapChain()
 {
-    WaitUntilGraphicsQueueProcessingDone();
-    CloseHandle(m_fenceEvent);
 }
 
 void SwapChain::Resize(uint32_t width, uint32_t height)
 {
-    WaitUntilGraphicsQueueProcessingDone();
+    m_graphicsCommandQueue.WaitUntilAllGPUWorkIsFinished();
 
     for (auto& buffer : m_backbuffers)
         buffer.Release();
@@ -104,8 +88,7 @@ void SwapChain::CreateBackbufferResources()
     {
         ComPtr<ID3D12Resource> backbuffer;
         ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&backbuffer)));
-        m_backbuffers[n] = TextureResource(backbuffer.Get());
-        m_backbuffers[n]->SetName((std::wstring(L"Backbuffer ") + std::to_wstring(n)).c_str());
+        m_backbuffers[n] = TextureResource((std::wstring(L"Backbuffer ") + std::to_wstring(n)).c_str(), backbuffer.Get());
     }
 
     // Create a RTV and a command allocator for each frame.
@@ -125,25 +108,19 @@ void SwapChain::CreateBackbufferResources()
     m_bufferIndex = m_swapChain->GetCurrentBackBufferIndex();
 }
 
-void SwapChain::WaitUntilGraphicsQueueProcessingDone()
-{
-    SignalFenceForCurrentFrame();
-    WaitForLastSignalOnCurrentFrame();
-}
-
 void SwapChain::BeginFrame()
 {
     // Wait for frame latency waitable object.
     if (WaitForSingleObject(m_swapChain->GetFrameLatencyWaitableObject(), 1000 * 10))
         throw std::exception("Waited for more than 10s on gpu work!");
 
+    // Advance frame index.
+    m_frameIndex = (m_frameIndex + 1) % MaxFramesInFlight;
+    m_bufferIndex = m_swapChain->GetCurrentBackBufferIndex();
+
     // If the frame at this slot, is not ready yet, wait until it is ready, otherwise we would use resources that are still in use.
     // (latency object might have let us through regardless - it might not even wait for vsync!)
-    WaitForLastSignalOnCurrentFrame();
-
-    // Advance frameindex
-    m_bufferIndex = m_swapChain->GetCurrentBackBufferIndex();
-    m_frameIndex = (m_frameIndex + 1) % MaxFramesInFlight;
+    m_graphicsCommandQueue.WaitUntilExectionIsFinished(m_frameExecutionIndices[m_frameIndex]);
 }
 
 void SwapChain::Present()
@@ -152,24 +129,6 @@ void SwapChain::Present()
     // This is a FLIP chain, therefore THIS does imply not disabled vsync, DXGI_FEATURE_PRESENT_ALLOW_TEARING does.
     ThrowIfFailed(m_swapChain->Present(0, 0));
 
-    // Schedule a Signal command in the queue.
-    SignalFenceForCurrentFrame();
+    // Only if m_graphicsCommandQueue.GetLastExecutionIndex is done, this frame slot is available.
+    m_frameExecutionIndices[m_frameIndex] = m_graphicsCommandQueue.GetLastExecutionIndex();
 }
-
-void SwapChain::SignalFenceForCurrentFrame()
-{
-    ThrowIfFailed(m_graphicsCommandQueue->Signal(m_fence.Get(), m_nextFenceSignal));
-    m_lastSignaledFenceValues[m_frameIndex] = m_nextFenceSignal;
-    ++m_nextFenceSignal;
-}
-
-void SwapChain::WaitForLastSignalOnCurrentFrame()
-{
-    if (m_fence->GetCompletedValue() >= m_lastSignaledFenceValues[m_frameIndex])
-        return;
-
-    ThrowIfFailed(m_fence->SetEventOnCompletion(m_lastSignaledFenceValues[m_frameIndex], m_fenceEvent));
-    if (WaitForSingleObject(m_fenceEvent, 1000 * 10) == WAIT_TIMEOUT)
-        throw std::exception("Waited for more than 10s on gpu work!");
-}
-

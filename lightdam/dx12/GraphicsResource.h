@@ -4,6 +4,7 @@
 #include <cstring>
 #include <utility>
 #include <d3d12.h>
+#include <string>
 
 struct ID3D12Device;
 struct ID3D12Resource;
@@ -16,7 +17,7 @@ class GraphicsResource
 {
 public:
     GraphicsResource() = default;
-    GraphicsResource(ID3D12Resource* resource);
+    GraphicsResource(const wchar_t* name, ID3D12Resource* resource);
     GraphicsResource(const wchar_t* name, D3D12_HEAP_TYPE heapType, D3D12_RESOURCE_STATES initialState, const D3D12_RESOURCE_DESC& desc, ID3D12Device* device);
     virtual ~GraphicsResource() { Release(); }
 
@@ -36,14 +37,16 @@ public:
     void Unmap(uint32_t subresource = 0);
 
     static GraphicsResource CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device* device);
-    static GraphicsResource CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device* device);
+    static GraphicsResource CreateUploadBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
     static GraphicsResource CreateReadbackBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
 
     uint64_t GetSizeInBytes() const;
+    const std::wstring& GetName() const { return m_name; }
 
 protected:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_desc = {};
+    std::wstring m_name;
 };
 
 class TextureResource : public GraphicsResource

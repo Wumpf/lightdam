@@ -5,15 +5,18 @@
 #include <d3d12.h>
 #include "../../external/d3dx12.h"
 
-GraphicsResource::GraphicsResource(ID3D12Resource* resource)
+GraphicsResource::GraphicsResource(const wchar_t* name, ID3D12Resource* resource)
     : m_resource(resource)
     , m_desc(resource ? resource->GetDesc() : D3D12_RESOURCE_DESC{})
+    , m_name(name)
 {
     m_resource->AddRef();
+    m_resource->SetName(name);
 }
 
 GraphicsResource::GraphicsResource(const wchar_t* name, D3D12_HEAP_TYPE heapType, D3D12_RESOURCE_STATES initialState, const D3D12_RESOURCE_DESC& desc, ID3D12Device* device)
     : m_desc(desc)
+    , m_name(name)
 {
     ThrowIfFailed(device->CreateCommittedResource(
         &CD3DX12_HEAP_PROPERTIES(heapType),
@@ -37,14 +40,18 @@ void GraphicsResource::Release()
 void GraphicsResource::operator=(GraphicsResource&& temp)
 {
     Release();
-    memcpy(this, &temp, sizeof(GraphicsResource));
+    m_resource = temp.m_resource;
+    m_desc = std::move(temp.m_desc);
+    m_name = std::move(temp.m_name);
     temp.m_resource = nullptr;
 }
 
 void GraphicsResource::operator = (const GraphicsResource& cpy)
 {
     Release();
-    memcpy(this, &cpy, sizeof(GraphicsResource));
+    m_resource = cpy.m_resource;
+    m_desc = cpy.m_desc;
+    m_name = cpy.m_name;
     m_resource->AddRef();
 }
 
@@ -75,7 +82,7 @@ GraphicsResource GraphicsResource::CreateBufferForRTAccellerationStructure(const
     return GraphicsResource(name, D3D12_HEAP_TYPE_DEFAULT, initState, desc, device);
 }
 
-GraphicsResource GraphicsResource::CreateUploadHeap(const wchar_t* name, uint64_t size, ID3D12Device* device)
+GraphicsResource GraphicsResource::CreateUploadBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device)
 {
     const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE);
     return GraphicsResource(name, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, desc, device);

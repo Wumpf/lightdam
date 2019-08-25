@@ -8,16 +8,17 @@
 #include <string>
 
 class TopLevelAS;
+class CommandQueue;
 
 // A static scene with a DXR Raytracing accelleration structure.
 class Scene
 {
 public:
     // Creates a hardcoded test scene.
-    static std::unique_ptr<Scene> LoadTestScene(class SwapChain& swapChain, struct ID3D12Device5* device);
+    static std::unique_ptr<Scene> LoadTestScene(CommandQueue& commandQueue, struct ID3D12Device5* device);
     // Loads from a PBRT file.
     // Converts to binary format on successful load which will be used automatically if already existing.
-    static std::unique_ptr<Scene> LoadPbrtScene(const std::string& pbrtFilePath, class SwapChain& swapChain, struct ID3D12Device5* device);
+    static std::unique_ptr<Scene> LoadPbrtScene(const std::string& pbrtFilePath, CommandQueue& commandQueue, struct ID3D12Device5* device);
 
     ~Scene();
 
@@ -74,7 +75,7 @@ private:
 
     Scene();
 
-    void CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5* device);
+    void CreateAccellerationDataStructure(CommandQueue& commandQueue, ID3D12Device5* device);
 
     std::string m_originFilePath;
 

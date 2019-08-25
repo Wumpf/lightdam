@@ -57,15 +57,15 @@ Application::Application(int argc, char** argv)
 
 Application::~Application()
 {
-    m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+    m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
 
-    //m_commandList->Close();
     m_commandList = nullptr;
     for (int i = 0; i < SwapChain::MaxFramesInFlight; ++i)
     {
         m_commandAllocators[i]->Reset();
         m_commandAllocators[i] = nullptr;
     }
+    
 
     m_toneMapper.reset();
     m_pathTracer.reset();
@@ -92,7 +92,7 @@ void Application::Run()
         if (m_shaderDirectoryWatcher.HasDirectoryFileChangesSinceLastCheck())
         {
             LogPrint(LogLevel::Info, "Reloading shaders ...");
-            m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+            m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
             m_pathTracer->ReloadShaders();
             m_toneMapper->ReloadShaders();
             LogPrint(LogLevel::Info, "... done reloading shaders");
@@ -105,7 +105,7 @@ void Application::Run()
 
         if (m_frameCapture->GetHoldsUnsavedCopy())
         {
-            m_swapChain->WaitUntilGraphicsQueueProcessingDone();
+            m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
 
             std::string screenshotName;
             int i = 0;
@@ -124,9 +124,9 @@ void Application::LoadScene(const std::string& pbrtFileName)
 {
     std::unique_ptr<Scene> newScene;
     if (pbrtFileName.empty())
-        newScene = Scene::LoadTestScene(*m_swapChain, m_device.Get());
+        newScene = Scene::LoadTestScene(m_swapChain->GetGraphicsCommandQueue(), m_device.Get());
     else
-        newScene = Scene::LoadPbrtScene(pbrtFileName, *m_swapChain, m_device.Get());
+        newScene = Scene::LoadPbrtScene(pbrtFileName, m_swapChain->GetGraphicsCommandQueue(), m_device.Get());
     if (!newScene)
         return;
     m_scene = std::move(newScene);
@@ -228,9 +228,7 @@ void Application::RenderFrame()
     PopulateCommandList();
 
     // Execute lists and swap.
-    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-    m_swapChain->GetGraphicsCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
+    m_swapChain->GetGraphicsCommandQueue().ExecuteCommandList(m_commandList.Get());
     m_swapChain->Present();
 }
 

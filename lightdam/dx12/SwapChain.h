@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wrl/client.h>
-#include <d3d12.h>
+#include "CommandQueue.h"
 #include "GraphicsResource.h"
 
 using namespace Microsoft::WRL;
@@ -18,10 +18,7 @@ public:
     const TextureResource& GetCurrentRenderTarget() const   { return m_backbuffers[m_bufferIndex]; }
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveBackbufferDescriptorHandle() const;
 
-    ID3D12CommandQueue* GetGraphicsCommandQueue() const  { return m_graphicsCommandQueue.Get(); }
-
-    // Blocks until all gpu work is done on the graphics command queue.
-    void WaitUntilGraphicsQueueProcessingDone();
+    CommandQueue& GetGraphicsCommandQueue() { return m_graphicsCommandQueue; }
 
     // * waits until a backbuffer is available for rendering
     // * advances the frame index
@@ -34,10 +31,7 @@ public:
     static const int MaxFramesInFlight = 2;
 
 private:
-
     void CreateBackbufferResources();
-    void SignalFenceForCurrentFrame();
-    void WaitForLastSignalOnCurrentFrame();
 
     // As by recommendation of Nvidia and Intel, we have one more buffer than we fill with the gpu.
     // https://developer.nvidia.com/dx12-dos-and-donts
@@ -45,17 +39,15 @@ private:
     // At any point the flip-mode swap chain may look one of its buffers, so we should account for that.
     static const int BufferCount = MaxFramesInFlight + 1;
 
-    ComPtr<ID3D12CommandQueue>      m_graphicsCommandQueue;
+
     ComPtr<struct IDXGISwapChain3>  m_swapChain;
     TextureResource                 m_backbuffers[BufferCount];
     ComPtr<ID3D12DescriptorHeap>    m_backbufferDescripterHeap;
     unsigned int                    m_rtvDescriptorSize;
 
-    // Synchronization objects.
     unsigned int m_frameIndex;
     unsigned int m_bufferIndex;
-    void* m_fenceEvent;
-    ComPtr<struct ID3D12Fence> m_fence;
-    uint64_t m_nextFenceSignal;
-    uint64_t m_lastSignaledFenceValues[MaxFramesInFlight];
+    CommandQueue::ExecutionIndex m_frameExecutionIndices[MaxFramesInFlight];
+
+    CommandQueue m_graphicsCommandQueue;
 };

@@ -1,7 +1,7 @@
 #include "Scene.h"
 #include "dx12/TopLevelAS.h"
 #include "dx12/BottomLevelAS.h"
-#include "dx12/SwapChain.h"
+#include "dx12/CommandQueue.h"
 #include "ErrorHandling.h"
 #include "StringConversion.h"
 
@@ -35,11 +35,11 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX
 
     // TODO: Don't use upload heaps
     const UINT vertexBufferSize = sizeof(triangleVertices);
-    mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle VB", sizeof(triangleVertices), device);
+    mesh.vertexBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle VB", sizeof(triangleVertices), device);
     mesh.vertexCount = 3;
-    mesh.indexBuffer = GraphicsResource::CreateUploadHeap(L"Triangle IB", sizeof(int32_t) * 3, device);
+    mesh.indexBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle IB", sizeof(int32_t) * 3, device);
     mesh.indexCount = 3;
-    mesh.constantBuffer = GraphicsResource::CreateUploadHeap(L"Triangle CB", sizeof(Scene::MeshConstants), device);
+    mesh.constantBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle CB", sizeof(Scene::MeshConstants), device);
 
     {
         ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
@@ -60,7 +60,7 @@ static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX
     }
 }
 
-std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5* device)
+std::unique_ptr<Scene> Scene::LoadTestScene(CommandQueue& commandQueue, ID3D12Device5* device)
 {
     auto scene = std::unique_ptr<Scene>(new Scene());
     scene->m_meshes.resize(3);
@@ -68,7 +68,7 @@ std::unique_ptr<Scene> Scene::LoadTestScene(SwapChain& swapChain, ID3D12Device5*
     CreateTestTriangle(scene->m_meshes[1], device, DirectX::XMFLOAT3(0.5f, 0.0f, 0.0f), { 0.0f, 1.0f, 0.0f });
     CreateTestTriangle(scene->m_meshes[2], device, DirectX::XMFLOAT3(0.0f, 0.5f, 0.0f), { 0.0f, 0.0f, 1.0f });
     scene->m_originFilePath = "Builtin Test Scene";
-    scene->CreateAccellerationDataStructure(swapChain, device);
+    scene->CreateAccellerationDataStructure(commandQueue, device);
     return scene;
 }
 
@@ -99,12 +99,12 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     // todo: Handle material & textures
      //shape->material
     Scene::Mesh mesh;
-    mesh.vertexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
+    mesh.vertexBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
     mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
     uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
-    mesh.indexBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
+    mesh.indexBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
-    mesh.constantBuffer = GraphicsResource::CreateUploadHeap(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
+    mesh.constantBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
     {
         // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
         if (triangleShape->normal.empty())
@@ -166,7 +166,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     return mesh;
 }
 
-std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, SwapChain& swapChain, ID3D12Device5* device)
+std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, CommandQueue& commandQueue, ID3D12Device5* device)
 {
     pbrt::Scene::SP pbrtScene;
 
@@ -252,13 +252,13 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Swa
     //CreateTestTriangle(scene->m_meshes.back(), device);
 
     LogPrint(LogLevel::Info, "Creating accelleration datastructure...");
-    scene->CreateAccellerationDataStructure(swapChain, device);
+    scene->CreateAccellerationDataStructure(commandQueue, device);
 
     LogPrint(LogLevel::Success, "Successfully loaded scene");
     return scene;
 }
 
-void Scene::CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5* device)
+void Scene::CreateAccellerationDataStructure(CommandQueue& commandQueue, ID3D12Device5* device)
 {
     ComPtr<ID3D12CommandAllocator> commandAllocator;
     ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator)));
@@ -279,11 +279,8 @@ void Scene::CreateAccellerationDataStructure(SwapChain& swapChain, ID3D12Device5
     m_tlas = TopLevelAS::Generate({ instance }, commandList.Get(), device);
     m_blas.push_back(std::move(blas));
 
-    // todo: Don't use the swapChain for this, but an independent compute queue.
     commandList->Close();
-    ID3D12CommandList* commandLists[] = { commandList.Get() };
-    swapChain.GetGraphicsCommandQueue()->ExecuteCommandLists(1, commandLists);
-    swapChain.WaitUntilGraphicsQueueProcessingDone();
+    commandQueue.WaitUntilExectionIsFinished(commandQueue.ExecuteCommandList(commandList.Get()));
 }
 
 const std::string Scene::GetName() const

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dx12/SwapChain.h"
 #include "dx12/Shader.h"
 #include "dx12/GraphicsResource.h"
 #include "dx12/DynamicConstantBuffer.h"

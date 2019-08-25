@@ -35,7 +35,7 @@ RaytracingShaderBindingTable RaytracingBindingTableGenerator::Generate(ID3D12Sta
     table.m_hitGroupTable.SizeInBytes = Align(table.m_hitGroupTable.StrideInBytes * m_subtableHitGroupEntries.entries.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 
     const auto bufferSize = table.m_rayGenerationShaderRecord.SizeInBytes + table.m_missShaderTable.SizeInBytes + table.m_hitGroupTable.SizeInBytes;
-    table.m_table = GraphicsResource::CreateUploadHeap(L"shader binding table", bufferSize, device);
+    table.m_table = GraphicsResource::CreateUploadBuffer(L"shader binding table", bufferSize, device);
 
     // Copy data to table.
     {

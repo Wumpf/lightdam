@@ -102,6 +102,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="dx12\BottomLevelAS.cpp" />
+    <ClCompile Include="dx12\CommandQueue.cpp" />
     <ClCompile Include="dx12\DynamicConstantBuffer.cpp" />
     <ClCompile Include="dx12\GraphicsResource.cpp" />
     <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp" />
@@ -138,6 +139,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="dx12\BottomLevelAS.h" />
+    <ClInclude Include="dx12\CommandQueue.h" />
     <ClInclude Include="dx12\DynamicConstantBuffer.h" />
     <ClInclude Include="dx12\GraphicsResource.h" />
     <ClInclude Include="dx12\RaytracingShaderBindingTable.h" />

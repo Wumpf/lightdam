@@ -24,7 +24,7 @@ std::unique_ptr<TopLevelAS> TopLevelAS::Generate(const std::vector<BottomLevelAS
     auto tlas = std::unique_ptr<TopLevelAS>(new TopLevelAS());
     tlas->m_tlas = GraphicsResource::CreateBufferForRTAccellerationStructure(L"TLAS - result", info.ResultDataMaxSizeInBytes, false, device);
     tlas->m_scratch = GraphicsResource::CreateBufferForRTAccellerationStructure(L"TLAS - scratch", info.ScratchDataSizeInBytes, true, device);
-    tlas->m_descriptors = GraphicsResource::CreateUploadHeap(L"TLAS - instance descs", Align<uint64_t>(sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * blasInstances.size(), D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT), device);
+    tlas->m_descriptors = GraphicsResource::CreateUploadBuffer(L"TLAS - instance descs", Align<uint64_t>(sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * blasInstances.size(), D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT), device);
 
     // Copy the descriptors in the target descriptor buffer
     D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs = (D3D12_RAYTRACING_INSTANCE_DESC*)tlas->m_descriptors.Map();
