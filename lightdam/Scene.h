@@ -14,8 +14,6 @@ class CommandQueue;
 class Scene
 {
 public:
-    // Creates a hardcoded test scene.
-    static std::unique_ptr<Scene> LoadTestScene(CommandQueue& commandQueue, struct ID3D12Device5* device);
     // Loads from a PBRT file.
     // Converts to binary format on successful load which will be used automatically if already existing.
     static std::unique_ptr<Scene> LoadPbrtScene(const std::string& pbrtFilePath, CommandQueue& commandQueue, struct ID3D12Device5* device);
@@ -75,7 +73,7 @@ private:
 
     Scene();
 
-    void CreateAccellerationDataStructure(CommandQueue& commandQueue, ID3D12Device5* device);
+    void CreateAccellerationDataStructure(ID3D12GraphicsCommandList4* commandList, ID3D12Device5* device);
 
     std::string m_originFilePath;
 

@@ -124,7 +124,7 @@ void Application::LoadScene(const std::string& pbrtFileName)
 {
     std::unique_ptr<Scene> newScene;
     if (pbrtFileName.empty())
-        newScene = Scene::LoadTestScene(m_swapChain->GetGraphicsCommandQueue(), m_device.Get());
+        newScene = nullptr; //Scene::LoadTestScene(m_swapChain->GetGraphicsCommandQueue(), m_device.Get());
     else
         newScene = Scene::LoadPbrtScene(pbrtFileName, m_swapChain->GetGraphicsCommandQueue(), m_device.Get());
     if (!newScene)

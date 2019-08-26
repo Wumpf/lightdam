@@ -37,6 +37,7 @@ public:
     void Unmap(uint32_t subresource = 0);
 
     static GraphicsResource CreateBufferForRTAccellerationStructure(const wchar_t* name, uint64_t size, bool scratch, ID3D12Device* device);
+    static GraphicsResource CreateStaticBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
     static GraphicsResource CreateUploadBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
     static GraphicsResource CreateReadbackBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
 

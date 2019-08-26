@@ -2,6 +2,7 @@
 #include "dx12/TopLevelAS.h"
 #include "dx12/BottomLevelAS.h"
 #include "dx12/CommandQueue.h"
+#include "dx12/ResourceUploadBatch.h"
 #include "ErrorHandling.h"
 #include "StringConversion.h"
 
@@ -23,53 +24,14 @@ static DirectX::XMVECTOR PbrtVec3ToXMVector(pbrt::vec3f v)
     return DirectX::XMLoadFloat3(&PbrtVec3ToXMFloat3(v));
 }
 
-static void CreateTestTriangle(Scene::Mesh& mesh, ID3D12Device5* device, DirectX::XMFLOAT3 offset, DirectX::XMFLOAT3 normal)
+static ComPtr<ID3D12GraphicsCommandList4> CreateTemporaryCommandList(ID3D12Device* device)
 {
-    // Define the geometry for a triangle.
-    Scene::Vertex triangleVertices[] =
-    {
-        { { 0.0f + offset.x, 0.25f + offset.y, offset.z }, normal },
-        { { 0.25f + offset.x, -0.25f + offset.y, offset.z }, normal },
-        { { -0.25f + offset.x, -0.25f + offset.y, offset.z }, normal }
-    };
+    ComPtr<ID3D12CommandAllocator> commandAllocator;
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator)));
+    ComPtr<ID3D12GraphicsCommandList4> commandList;
+    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)));
 
-    // TODO: Don't use upload heaps
-    const UINT vertexBufferSize = sizeof(triangleVertices);
-    mesh.vertexBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle VB", sizeof(triangleVertices), device);
-    mesh.vertexCount = 3;
-    mesh.indexBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle IB", sizeof(int32_t) * 3, device);
-    mesh.indexCount = 3;
-    mesh.constantBuffer = GraphicsResource::CreateUploadBuffer(L"Triangle CB", sizeof(Scene::MeshConstants), device);
-
-    {
-        ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
-        memcpy(vertexBufferData.Get(), triangleVertices, sizeof(triangleVertices));
-    }
-    {
-        ScopedResourceMap indexBufferData(mesh.indexBuffer);
-        int32_t* indices = (int32_t*)indexBufferData.Get();
-        indices[0] = 2;
-        indices[1] = 1;
-        indices[2] = 0;
-    }
-    {
-        ScopedResourceMap contextBufferData(mesh.constantBuffer);
-        auto constants = (Scene::MeshConstants*)contextBufferData.Get();
-        constants->MeshIndex = 0;
-        constants->Diffuse = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
-    }
-}
-
-std::unique_ptr<Scene> Scene::LoadTestScene(CommandQueue& commandQueue, ID3D12Device5* device)
-{
-    auto scene = std::unique_ptr<Scene>(new Scene());
-    scene->m_meshes.resize(3);
-    CreateTestTriangle(scene->m_meshes[0], device, DirectX::XMFLOAT3(-0.5f, 0.0f, 0.0f), { 1.0f, 0.0f, 0.0f });
-    CreateTestTriangle(scene->m_meshes[1], device, DirectX::XMFLOAT3(0.5f, 0.0f, 0.0f), { 0.0f, 1.0f, 0.0f });
-    CreateTestTriangle(scene->m_meshes[2], device, DirectX::XMFLOAT3(0.0f, 0.5f, 0.0f), { 0.0f, 0.0f, 1.0f });
-    scene->m_originFilePath = "Builtin Test Scene";
-    scene->CreateAccellerationDataStructure(commandQueue, device);
-    return scene;
+    return commandList;
 }
 
 static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
@@ -93,18 +55,18 @@ static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t n
     }
 }
 
-static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, std::vector<Scene::AreaLightTriangle>& outAreaLights)
+static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, 
+                                std::vector<Scene::AreaLightTriangle>& outAreaLights, ResourceUploadBatch& resourceUpload)
 {
-    // TODO: Don't use upload heaps
     // todo: Handle material & textures
-     //shape->material
+    //shape->material
     Scene::Mesh mesh;
-    mesh.vertexBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
+    mesh.vertexBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
     mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
     uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
-    mesh.indexBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
+    mesh.indexBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
-    mesh.constantBuffer = GraphicsResource::CreateUploadBuffer(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
+    mesh.constantBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
     {
         // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
         if (triangleShape->normal.empty())
@@ -138,8 +100,8 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         }
 
         {
-            ScopedResourceMap vertexBufferData(mesh.vertexBuffer);
-            memcpy(vertexBufferData.Get(), vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
+            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
         }
 
         pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
@@ -147,12 +109,12 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             AddAreaLights(vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
     }
     {
-        ScopedResourceMap indexBufferData(mesh.indexBuffer);
-        memcpy(indexBufferData.Get(), triangleShape->index.data(), indexbufferSize);
+        void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        memcpy(indexBufferUploadData, triangleShape->index.data(), indexbufferSize);
     }
     {
-        ScopedResourceMap contextBufferData(mesh.constantBuffer);
-        auto constants = (Scene::MeshConstants*)contextBufferData.Get();
+        void* constantBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        auto constants = (Scene::MeshConstants*)constantBufferUploadData;
         constants->MeshIndex = index;
         constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
         if (triangleShape->material)
@@ -225,13 +187,16 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
         camera.SnapUpToAxis(); // Makes camera easier to control
     }
 
+    auto commandList = CreateTemporaryCommandList(device);
+    ResourceUploadBatch uploadBatch(commandList.Get());
+
     for (const pbrt::Instance::SP& instance : pbrtScene->world->instances)
     {
         for (const pbrt::Shape::SP& shape : instance->object->shapes)
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
             if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights));
+                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, uploadBatch));
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
@@ -252,19 +217,17 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
     //CreateTestTriangle(scene->m_meshes.back(), device);
 
     LogPrint(LogLevel::Info, "Creating accelleration datastructure...");
-    scene->CreateAccellerationDataStructure(commandQueue, device);
+    scene->CreateAccellerationDataStructure(commandList.Get(), device);
+
+    commandList->Close();
+    commandQueue.WaitUntilExectionIsFinished(commandQueue.ExecuteCommandList(commandList.Get()));    
 
     LogPrint(LogLevel::Success, "Successfully loaded scene");
     return scene;
 }
 
-void Scene::CreateAccellerationDataStructure(CommandQueue& commandQueue, ID3D12Device5* device)
+void Scene::CreateAccellerationDataStructure(ID3D12GraphicsCommandList4* commandList, ID3D12Device5* device)
 {
-    ComPtr<ID3D12CommandAllocator> commandAllocator;
-    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator)));
-    ComPtr<ID3D12GraphicsCommandList4> commandList;
-    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)));
-
     std::vector<BottomLevelASMesh> blasMeshes(m_meshes.size());
     for (int i = 0; i < m_meshes.size(); ++i)
     {
@@ -273,14 +236,11 @@ void Scene::CreateAccellerationDataStructure(CommandQueue& commandQueue, ID3D12D
         blasMeshes[i].indexBuffer = m_meshes[i].indexBuffer->GetGPUVirtualAddress();
         blasMeshes[i].indexCount = m_meshes[i].indexCount;
     }
-    auto blas = BottomLevelAS::Generate(blasMeshes, commandList.Get(), device);
+    auto blas = BottomLevelAS::Generate(blasMeshes, commandList, device);
 
     auto instance = BottomLevelASInstance(blas.get());
-    m_tlas = TopLevelAS::Generate({ instance }, commandList.Get(), device);
+    m_tlas = TopLevelAS::Generate({ instance }, commandList, device);
     m_blas.push_back(std::move(blas));
-
-    commandList->Close();
-    commandQueue.WaitUntilExectionIsFinished(commandQueue.ExecuteCommandList(commandList.Get()));
 }
 
 const std::string Scene::GetName() const

@@ -106,6 +106,7 @@
     <ClCompile Include="dx12\DynamicConstantBuffer.cpp" />
     <ClCompile Include="dx12\GraphicsResource.cpp" />
     <ClCompile Include="dx12\RaytracingShaderBindingTable.cpp" />
+    <ClCompile Include="dx12\ResourceUploadBatch.cpp" />
     <ClCompile Include="dx12\RootSignature.cpp" />
     <ClCompile Include="dx12\Shader.cpp" />
     <ClCompile Include="dx12\SwapChain.cpp" />
@@ -143,6 +144,7 @@
     <ClInclude Include="dx12\DynamicConstantBuffer.h" />
     <ClInclude Include="dx12\GraphicsResource.h" />
     <ClInclude Include="dx12\RaytracingShaderBindingTable.h" />
+    <ClInclude Include="dx12\ResourceUploadBatch.h" />
     <ClInclude Include="dx12\RootSignature.h" />
     <ClInclude Include="dx12\Shader.h" />
     <ClInclude Include="dx12\SwapChain.h" />

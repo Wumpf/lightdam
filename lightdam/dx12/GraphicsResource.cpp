@@ -82,6 +82,12 @@ GraphicsResource GraphicsResource::CreateBufferForRTAccellerationStructure(const
     return GraphicsResource(name, D3D12_HEAP_TYPE_DEFAULT, initState, desc, device);
 }
 
+GraphicsResource GraphicsResource::CreateStaticBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device)
+{
+    const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE);
+    return GraphicsResource(name, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST, desc, device);
+}
+
 GraphicsResource GraphicsResource::CreateUploadBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device)
 {
     const D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_NONE);

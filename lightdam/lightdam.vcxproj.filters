@@ -63,6 +63,9 @@
     <ClCompile Include="dx12\CommandQueue.cpp">
       <Filter>dx12</Filter>
     </ClCompile>
+    <ClCompile Include="dx12\ResourceUploadBatch.cpp">
+      <Filter>dx12</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -139,6 +142,9 @@
       <Filter>external</Filter>
     </ClInclude>
     <ClInclude Include="dx12\CommandQueue.h">
+      <Filter>dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="dx12\ResourceUploadBatch.h">
       <Filter>dx12</Filter>
     </ClInclude>
   </ItemGroup>
