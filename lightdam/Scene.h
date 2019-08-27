@@ -26,6 +26,7 @@ public:
         Mesh() = default;
         Mesh(Mesh&&) = default;
 
+        GraphicsResource positionBuffer;
         GraphicsResource vertexBuffer;
         uint32_t vertexCount;
         GraphicsResource indexBuffer;
@@ -36,7 +37,7 @@ public:
     // Exact vertex format used by all vertices in Mesh.
     struct Vertex
     {
-        DirectX::SimpleMath::Vector3 position; // todo: unnecessary for hit shader
+        // Position not needed since everything we need is in the accelleration datastructure!
         DirectX::SimpleMath::Vector3 normal;
         // todo: texcoord missing
     };

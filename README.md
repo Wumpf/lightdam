@@ -5,8 +5,6 @@ A DXR toy raytracer named after the light dams mentioned in Terry Prattchett's C
 ## todo & things to try
 
 * write a proper readme
-* scene data
-    * drop vertex positions from vertex buffers used during tracing (redundant!)
 * materials & lighting
     * textures
     * specular/more materials

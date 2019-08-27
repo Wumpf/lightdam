@@ -63,7 +63,6 @@ cbuffer MeshConstants : register (b2)
 
 struct Vertex
 {
-    float3 vertex; // Todo: Not actually needed, remove!
     float3 normal;
 };
 StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);

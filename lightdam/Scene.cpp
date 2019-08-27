@@ -34,7 +34,7 @@ static ComPtr<ID3D12GraphicsCommandList4> CreateTemporaryCommandList(ID3D12Devic
     return commandList;
 }
 
-static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
+static void AddAreaLights(DirectX::XMFLOAT3* positions, Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
 {
     const auto firstNewAreaLightIdx = outAreaLights.size();
     outAreaLights.resize(outAreaLights.size() + numTriangles);
@@ -43,9 +43,9 @@ static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t n
     for (uint32_t triangleIdx = 0; triangleIdx < numTriangles; ++triangleIdx)
     {
         Scene::AreaLightTriangle& areaLightTriangle = outAreaLights[firstNewAreaLightIdx + triangleIdx];
-        areaLightTriangle.positions[0] = vertices[indices[triangleIdx * 3 + 0]].position;
-        areaLightTriangle.positions[1] = vertices[indices[triangleIdx * 3 + 1]].position;
-        areaLightTriangle.positions[2] = vertices[indices[triangleIdx * 3 + 2]].position;
+        areaLightTriangle.positions[0] = positions[indices[triangleIdx * 3 + 0]];
+        areaLightTriangle.positions[1] = positions[indices[triangleIdx * 3 + 1]];
+        areaLightTriangle.positions[2] = positions[indices[triangleIdx * 3 + 2]];
         areaLightTriangle.normals[0] = vertices[indices[triangleIdx * 3 + 0]].normal;
         areaLightTriangle.normals[1] = vertices[indices[triangleIdx * 3 + 1]].normal;
         areaLightTriangle.normals[2] = vertices[indices[triangleIdx * 3 + 2]].normal;
@@ -55,12 +55,38 @@ static void AddAreaLights(Scene::Vertex* vertices, uint32_t* indices, uint32_t n
     }
 }
 
+static void GenerateNormalsIfMissing(const pbrt::TriangleMesh::SP& triangleShape)
+{
+    if (!triangleShape->normal.empty())
+        return;
+        
+    triangleShape->normal.resize(triangleShape->vertex.size());
+    memset(triangleShape->normal.data(), 0, sizeof(pbrt::vec3f) * triangleShape->normal.size());
+
+    for (auto triangle : triangleShape->index)
+    {
+        auto v1 = triangleShape->vertex[triangle.x];
+        auto v2 = triangleShape->vertex[triangle.y];
+        auto v3 = triangleShape->vertex[triangle.z];
+        auto triangleNormal = pbrt::math::cross(v2 - v1, v3 - v1);
+        triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
+        triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
+        triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
+    }
+    for (auto& normal : triangleShape->normal)
+        normal = pbrt::math::normalize(normal);
+}
+
 static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, 
                                 std::vector<Scene::AreaLightTriangle>& outAreaLights, ResourceUploadBatch& resourceUpload)
 {
+    // Generate normals on the shape, so we can use the binary format of the pbrt library next time.
+    GenerateNormalsIfMissing(triangleShape);
+
     // todo: Handle material & textures
     //shape->material
     Scene::Mesh mesh;
+    mesh.positionBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " Positions").c_str(), sizeof(DirectX::XMFLOAT3) * triangleShape->vertex.size(), device);
     mesh.vertexBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
     mesh.vertexCount = (uint32_t)triangleShape->vertex.size();
     uint64_t indexbufferSize = sizeof(uint32_t) * triangleShape->index.size() * 3;
@@ -68,45 +94,31 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
     mesh.constantBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
     {
-        // Generate triangles on the shape, so we can use the binary format of the pbrt library next time.
-        if (triangleShape->normal.empty())
-        {
-            triangleShape->normal.resize(triangleShape->vertex.size());
-            memset(triangleShape->normal.data(), 0, sizeof(pbrt::vec3f) * triangleShape->normal.size());
+        // Positions
+        std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
+        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
+            positionBufferUploadData[vertexIdx] = PbrtVec3ToXMFloat3(instance->xfm * triangleShape->vertex[vertexIdx]);
 
-            for (auto triangle : triangleShape->index)
-            {
-                auto v1 = triangleShape->vertex[triangle.x];
-                auto v2 = triangleShape->vertex[triangle.y];
-                auto v3 = triangleShape->vertex[triangle.z];
-                auto triangleNormal = pbrt::math::cross(v2 - v1, v3 - v1);
-                triangleShape->normal[triangle.x] = triangleShape->normal[triangle.x] + triangleNormal;
-                triangleShape->normal[triangle.y] = triangleShape->normal[triangle.y] + triangleNormal;
-                triangleShape->normal[triangle.z] = triangleShape->normal[triangle.z] + triangleNormal;
-            }
-            for (auto& normal : triangleShape->normal)
-                normal = pbrt::math::normalize(normal);
-        }
-
+        // Vertices.
         auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
         std::vector<Scene::Vertex> vertices(triangleShape->vertex.size());
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
         {
-            vertices[vertexIdx].position = PbrtVec3ToXMFloat3(instance->xfm * triangleShape->vertex[vertexIdx]);
             auto normal = triangleShape->normal[vertexIdx];
             if (triangleShape->reverseOrientation)
                 normal = -normal;
             vertices[vertexIdx].normal = PbrtVec3ToXMFloat3(normalTransformation * normal);
         }
-
         {
             void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
         }
 
+        // Area Lights.
         pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
         if (areaLight)
-            AddAreaLights(vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
+            AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
     }
     {
         void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -231,7 +243,7 @@ void Scene::CreateAccellerationDataStructure(ID3D12GraphicsCommandList4* command
     std::vector<BottomLevelASMesh> blasMeshes(m_meshes.size());
     for (int i = 0; i < m_meshes.size(); ++i)
     {
-        blasMeshes[i].vertexBuffer = { m_meshes[i].vertexBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
+        blasMeshes[i].vertexBuffer = { m_meshes[i].positionBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
         blasMeshes[i].vertexCount = m_meshes[i].vertexCount;
         blasMeshes[i].indexBuffer = m_meshes[i].indexBuffer->GetGPUVirtualAddress();
         blasMeshes[i].indexCount = m_meshes[i].indexCount;
