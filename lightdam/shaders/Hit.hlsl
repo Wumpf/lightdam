@@ -55,6 +55,14 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     return;
 #endif
 
+    if (IsEmitter)
+    {
+        if (remainingBounces == NUM_BOUNCES-1) // an eye ray
+            payload.radiance += AreaLightRadiance;
+        payload.pathThroughput_remainingBounces.y = 0;
+        return;
+    }
+
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
     {

@@ -59,6 +59,8 @@ cbuffer MeshConstants : register (b2)
 {
     uint MeshIndex; // Index used for vertex/index buffer.
     float3 Diffuse; // Diffuse reflectivity (lambert)
+    float3 AreaLightRadiance;
+    bool IsEmitter;
 }
 
 struct Vertex

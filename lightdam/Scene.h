@@ -47,13 +47,15 @@ public:
     {
         uint32_t MeshIndex;
         DirectX::XMFLOAT3 Diffuse;
+        DirectX::XMFLOAT3 AreaLightRadiance;
+        uint32_t IsEmitter;
     };
 
     struct AreaLightTriangle
     {
         DirectX::SimpleMath::Vector3 positions[3];
         DirectX::SimpleMath::Vector3 normals[3];
-        DirectX::SimpleMath::Vector3 emittedRadiance; // The amount of emitted radiance at each point and emitted direction. (this is a 
+        DirectX::SimpleMath::Vector3 emittedRadiance; // The amount of emitted radiance at each point and emitted direction.
         float area;
     };
 

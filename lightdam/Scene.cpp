@@ -34,7 +34,7 @@ static ComPtr<ID3D12GraphicsCommandList4> CreateTemporaryCommandList(ID3D12Devic
     return commandList;
 }
 
-static void AddAreaLights(DirectX::XMFLOAT3* positions, Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
+static void AddAreaLights(const DirectX::XMFLOAT3* positions, const Scene::Vertex* vertices, uint32_t* indices, uint32_t numTriangles, DirectX::SimpleMath::Vector3 emittedRadiance, std::vector<Scene::AreaLightTriangle>& outAreaLights)
 {
     const auto firstNewAreaLightIdx = outAreaLights.size();
     outAreaLights.resize(outAreaLights.size() + numTriangles);
@@ -83,6 +83,8 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     // Generate normals on the shape, so we can use the binary format of the pbrt library next time.
     GenerateNormalsIfMissing(triangleShape);
 
+    pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
+
     // todo: Handle material & textures
     //shape->material
     Scene::Mesh mesh;
@@ -116,7 +118,6 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         }
 
         // Area Lights.
-        pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
         if (areaLight)
             AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
     }
@@ -135,6 +136,13 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             if (matteMaterial)
                 constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
         }
+        if (areaLight)
+        {
+            constants->AreaLightRadiance = PbrtVec3ToXMFloat3(areaLight->L);
+            constants->IsEmitter = 0xFFFFFFFF;
+        }
+        else
+            constants->IsEmitter = 0;
     }
 
     return mesh;
