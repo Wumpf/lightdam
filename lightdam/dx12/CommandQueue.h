@@ -19,7 +19,7 @@ public:
 
     bool IsExecutionFinished(ExecutionIndex index) const;
     void WaitUntilExectionIsFinished(ExecutionIndex index);
-    void WaitUntilAllGPUWorkIsFinished() { WaitUntilExectionIsFinished(m_lastSignaledFenceValue); }
+    void WaitUntilAllGPUWorkIsFinished();
 
     ExecutionIndex GetNextExecutionIndex() const { return m_nextFenceSignal; }
     ExecutionIndex GetLastExecutionIndex() const { return m_lastSignaledFenceValue; }

@@ -56,3 +56,13 @@ void CommandQueue::WaitUntilExectionIsFinished(ExecutionIndex index)
     if (WaitForSingleObject(m_fenceEvent, 1000 * 10) == WAIT_TIMEOUT)
         throw std::exception("Waited for more than 10s on gpu work!");
 }
+
+void CommandQueue::WaitUntilAllGPUWorkIsFinished()
+{
+    // Do another signal just in case if anyone executed command lists without going through our api.
+    ThrowIfFailed(m_commandQueue->Signal(m_fence, m_nextFenceSignal));
+    m_lastSignaledFenceValue = m_nextFenceSignal;
+    ++m_nextFenceSignal;
+
+    WaitUntilExectionIsFinished(m_lastSignaledFenceValue);
+}
