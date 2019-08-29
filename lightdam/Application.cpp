@@ -21,10 +21,14 @@
     #define USE_DEBUG_DEVICE
 #endif
 
+Application* Application::s_instance = nullptr;
+
 Application::Application(int argc, char** argv)
     : m_window(new Window(L"LightDam", L"LightDam", 1280, 768))
     , m_shaderDirectoryWatcher(L"shaders")
 {
+    s_instance = this;
+
     CreateDeviceAndSwapChain();
     CreateFrameResources();
 
@@ -57,6 +61,8 @@ Application::Application(int argc, char** argv)
 
 Application::~Application()
 {
+    s_instance = nullptr;
+
     m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
 
     m_commandList = nullptr;
@@ -87,8 +93,18 @@ void Application::Run()
     std::chrono::duration<float> lastFrameTime;
     while (!m_window->IsClosed())
     {
-        auto startTime = std::chrono::high_resolution_clock::now();
+        {
+            auto startTime = std::chrono::high_resolution_clock::now();
 
+            m_swapChain->BeginFrame();
+            m_window->ProcessWindowMessages();
+            m_activeCamera.Update(lastFrameTime.count());
+            RenderFrame();
+
+            lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
+        }
+
+        // Shader reload via directory changes.
         if (m_shaderDirectoryWatcher.HasDirectoryFileChangesSinceLastCheck())
         {
             LogPrint(LogLevel::Info, "Reloading shaders ...");
@@ -98,25 +114,18 @@ void Application::Run()
             LogPrint(LogLevel::Info, "... done reloading shaders");
         }
 
-        m_swapChain->BeginFrame();
-        m_window->ProcessWindowMessages();
-        m_activeCamera.Update(lastFrameTime.count());
-        RenderFrame();
-
-        if (m_frameCapture->GetHoldsUnsavedCopy())
+        // Other scheduled sync operations.
+        if (!m_onRenderFinishedCallbacks.empty())
         {
             m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
-
-            std::string screenshotName;
-            int i = 0;
-            do
+            for (auto& callback : m_onRenderFinishedCallbacks)
             {
-                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations).pfm";
-            } while (std::ifstream(screenshotName.c_str()));
-            m_frameCapture->GetStagingDataAndWriteToPfm(screenshotName);
+                const size_t numCallbacksBefore = m_onRenderFinishedCallbacks.size();
+                callback();
+                assert(numCallbacksBefore == m_onRenderFinishedCallbacks.size());
+            }
+            m_onRenderFinishedCallbacks.clear();
         }
-
-        lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
     }
 }
 
@@ -146,6 +155,17 @@ void Application::LoadScene(const std::string& pbrtFileName)
 void Application::SaveHdrImage()
 {
     m_frameCapture->CopyTextureToStaging(m_pathTracer->GetOutputTextureResource(), m_commandList.Get(), m_device.Get());
+
+    WaitForGPUOnNextFrameFinishAndExecute([this]()
+        {
+            std::string screenshotName;
+            int i = 0;
+            do
+            {
+                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations).pfm";
+            } while (std::ifstream(screenshotName.c_str()));
+            m_frameCapture->GetStagingDataAndWriteToPfm(screenshotName);
+        });
 }
 
 void Application::CreateDeviceAndSwapChain()

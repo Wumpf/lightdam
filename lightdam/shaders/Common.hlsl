@@ -38,6 +38,8 @@ cbuffer GlobalConstants : register(b0)
     float2 GlobalJitter;
     uint FrameNumber;
     uint FrameSeed; // A single random number for every frame!
+
+    float PathLengthFilterMax;
 };
 
 struct AreaLightSample

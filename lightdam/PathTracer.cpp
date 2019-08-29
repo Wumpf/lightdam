@@ -7,6 +7,7 @@
 
 #include <DirectXMath.h>
 
+#include "Application.h"
 #include "Scene.h"
 #include "dx12/TopLevelAS.h"
 #include "dx12/GraphicsResource.h"
@@ -28,6 +29,9 @@ struct GlobalConstants
     DirectX::XMFLOAT2 GlobalJitter;
     uint32_t FrameNumber;
     uint32_t FrameSeed;
+
+    float PathLengthFilterMax;
+    float _padding[3];
 };
 
 static const int randomSeed = 123;
@@ -73,6 +77,12 @@ void PathTracer::SetScene(Scene& scene)
     m_lightSampler.reset(new LightSampler(scene.GetAreaLights()));
 }
 
+void PathTracer::SetPathLengthFilterEnabled(bool enablePathLengthFilter)
+{
+    m_enablePathLengthFilter = enablePathLengthFilter;
+    Application::GetInstance().WaitForGPUOnNextFrameFinishAndExecute([this]() { ReloadShaders(); });
+}
+
 void PathTracer::SetDescriptorHeap(ID3D12GraphicsCommandList4* commandList)
 {
     ID3D12DescriptorHeap* heaps[] = { m_staticDescriptorHeap.Get() };
@@ -96,6 +106,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     globalConstants->GlobalJitter.y = ComputeHaltonSequence(m_frameNumber, 1);
     globalConstants->FrameNumber = m_frameNumber;
     globalConstants->FrameSeed = m_randomGenerator();
+    globalConstants->PathLengthFilterMax = m_pathLengthFilterMax;
     m_lightSampler->GenerateRandomSamples(m_frameNumber, m_areaLightSamples.GetData<LightSampler::LightSample>(frameIndex), m_numAreaLightSamples);
 
     // Transition output buffer from copy to unordered access - assume it starts as pixel shader resource.
@@ -235,12 +246,16 @@ void PathTracer::RestartSampling()
 
 bool PathTracer::LoadShaders(bool throwOnFailure)
 {
+    std::vector<DxcDefine> preprocessorDefines;
+    if (m_enablePathLengthFilter)
+        preprocessorDefines.push_back(DxcDefine{ L"ENABLE_PATHLENGTH_FILTER", nullptr });
+
     const Shader::LoadInstruction shaderLoads[] =
     {
-        { Shader::Type::Library, L"shaders/RayGen.hlsl", L"" },
-        { Shader::Type::Library, L"shaders/Miss.hlsl", L"" },
-        { Shader::Type::Library, L"shaders/Hit.hlsl", L"" },
-        { Shader::Type::Library, L"shaders/ShadowRay.hlsl", L"" },
+        { Shader::Type::Library, L"shaders/RayGen.hlsl", L"", preprocessorDefines },
+        { Shader::Type::Library, L"shaders/Miss.hlsl", L"", preprocessorDefines },
+        { Shader::Type::Library, L"shaders/Hit.hlsl", L"", preprocessorDefines },
+        { Shader::Type::Library, L"shaders/ShadowRay.hlsl", L"", preprocessorDefines },
     };
     Shader* shaders[] =
     {

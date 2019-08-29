@@ -10,6 +10,8 @@
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
+#include <functional>
+
 class Application
 {
 public:
@@ -21,6 +23,8 @@ public:
 
     Application(int argc, char** argv);
     ~Application();
+
+    static Application& GetInstance() { return *s_instance; }
 
     void Run();
     void LoadScene(const std::string& pbrtFileName);
@@ -34,6 +38,9 @@ public:
     void SetRenderingMode(RenderingMode newMode) { m_renderingMode = newMode; }
     void QueueSingleRenderIteration()            { m_iterationQueued = true; }
 
+    using OnRenderFinishedCallback = std::function<void()>;
+    void WaitForGPUOnNextFrameFinishAndExecute(const OnRenderFinishedCallback& callback) { m_onRenderFinishedCallbacks.push_back(callback); }
+
 private:
     void CreateDeviceAndSwapChain();
     void CreateFrameResources();
@@ -43,6 +50,7 @@ private:
     void RenderFrame();
     void PopulateCommandList();
 
+    static Application* s_instance;
 
     std::unique_ptr<class Window> m_window;
     std::unique_ptr<class SwapChain> m_swapChain;
@@ -61,4 +69,6 @@ private:
 
     RenderingMode m_renderingMode = RenderingMode::ProgressiveContinous;
     bool m_iterationQueued = false;
+
+    std::vector<OnRenderFinishedCallback> m_onRenderFinishedCallbacks;
 };

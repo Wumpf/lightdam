@@ -32,26 +32,30 @@ export void RayGen()
 
     RadianceRayHitInfo payload;
     payload.radiance = float3(0.0f, 0.0f, 0.0f);
+    payload.distance = 0.0f;
     payload.pathThroughput_remainingBounces = FloatToHalf(float3(1.0f, 1.0f, 1.0f), NUM_BOUNCES);
     payload.randomSeed = InitRandomSeed(FrameSeed, launchIndex.x * dims.y + launchIndex.y);
+    float pathLength = 0.0f;
 
     TraceRadianceRay(ray, payload);
 
     uint remainingBounces = payload.pathThroughput_remainingBounces.y >> 16;
-    float3 totalRadiance = payload.radiance;
 
     while (remainingBounces > 0)
     {
+        pathLength += payload.distance;
+        // If we do path length filtering, pass path length back in. (pathLength should be automaticaly optimized out if not used here!)
         ray.Origin = ray.Origin + ray.Direction * payload.distance;
         ray.Direction = UnpackDirection(payload.nextRayDirection);
-        payload.radiance = float3(0.0f, 0.0f, 0.0f);
+    #ifdef ENABLE_PATHLENGTH_FILTER
+        payload.distance = pathLength;
+    #endif
         TraceRadianceRay(ray, payload);
-        totalRadiance += payload.radiance;
         remainingBounces = payload.pathThroughput_remainingBounces.y >> 16;
     }
 
     if (FrameNumber == 0)
-        gOutput[launchIndex] = float4(totalRadiance, 1.f);
+        gOutput[launchIndex] = float4(payload.radiance, 1.f);
     else
-        gOutput[launchIndex] += float4(totalRadiance, 1.f);
+        gOutput[launchIndex] += float4(payload.radiance, 1.f);
 }

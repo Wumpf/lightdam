@@ -14,6 +14,7 @@ class Scene;
 class PathTracer
 {
 public:
+
     PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight);
     ~PathTracer();
 
@@ -21,6 +22,12 @@ public:
     void ReloadShaders();
     void RestartSampling();
     void SetScene(Scene& scene);
+
+    bool GetPathLengthFilterEnabled() const                 { return m_enablePathLengthFilter; }
+    void SetPathLengthFilterEnabled(bool enablePathLengthFilter);
+    float GetPathLengthFilterMax() const                    { return m_pathLengthFilterMax; }
+    void SetPathLengthFilterMax(float pathLengthFilterMax)  { m_pathLengthFilterMax = pathLengthFilterMax; RestartSampling(); }
+
 
     void DrawIteration(ID3D12GraphicsCommandList4* commandList, const Camera& activeCamera);
 
@@ -78,4 +85,7 @@ private:
     std::mt19937 m_randomGenerator;
 
     const uint32_t m_descriptorHeapIncrementSize;
+
+    bool m_enablePathLengthFilter = false;
+    float m_pathLengthFilterMax = 10.0f;
 };

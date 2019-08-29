@@ -28,6 +28,15 @@ bool ShadowRay(float3 worldPosition, float3 dirToLight, float lightDistance = De
 [shader("closesthit")]
 export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 {
+#ifdef ENABLE_PATHLENGTH_FILTER
+    float pathLength = payload.distance + RayTCurrent();
+    if (pathLength > PathLengthFilterMax)
+    {
+        payload.pathThroughput_remainingBounces.y = 0;
+        return;
+    }
+#endif
+
     float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     uint primitiveIdx = 3 * PrimitiveIndex();
     uint vertexIdx0 = IndexBuffers[MeshIndex][primitiveIdx + 0];
@@ -47,7 +56,6 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
     remainingBounces -= 1;
     payload.distance = RayTCurrent();
-    payload.radiance = float3(0.0f, 0.0f, 0.0f);
 
 #ifdef DEBUG_VISUALIZE_NORMALS
     payload.radiance = normal * 0.5 + float3(0.5f,0.5f,0.5f);
@@ -64,11 +72,12 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     }
 
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
+    float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
     {
         float3 dirToLight = AreaLightSamples[i].Position - worldPosition;
-        float lightDistSq = dot(dirToLight, dirToLight);
-        dirToLight *= rsqrt(lightDistSq);
+        float lightDistanceSq = dot(dirToLight, dirToLight);
+        dirToLight *= rsqrt(lightDistanceSq);
 
         float surfaceCos = dot(dirToLight,normal);
         if (surfaceCos <= 0.0f)
@@ -81,13 +90,20 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
         // We factor this in last, to keep the scalar factors together (== multiplying by lightSampleCos)
         float3 brdfLightSample = Diffuse / PI;
-        float irradianceLightSample = surfaceCos / lightDistSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
-        if (ShadowRay(worldPosition, dirToLight, sqrt(lightDistSq)))
+        float irradianceLightSample = surfaceCos / lightDistanceSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
+        float lightDistance = sqrt(lightDistanceSq);
+
+#ifdef ENABLE_PATHLENGTH_FILTER
+        if (pathLength + lightDistance > PathLengthFilterMax)
+            continue;
+#endif
+
+        if (ShadowRay(worldPosition, dirToLight, lightDistance))
             irradianceLightSample = 0.0f;
         
-        payload.radiance += (pathThroughput * irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
+        radiance += (pathThroughput * irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
     }
-    payload.radiance /= NUM_LIGHT_SAMPLES_PERHIT;
+    payload.radiance += radiance / NUM_LIGHT_SAMPLES_PERHIT;
 
     // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI

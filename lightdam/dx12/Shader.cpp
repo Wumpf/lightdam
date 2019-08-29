@@ -45,7 +45,7 @@ Shader::~Shader()
         m_shaderBlob->Release();
 }
 
-Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction)
+Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction, const PreprocessorDefineList& preprocessorDefines)
 {
     LoadCompiler();
 
@@ -71,7 +71,7 @@ Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t
     ThrowIfFailed(dxcCompiler->Compile(textBlob.Get(), filename,
         type == Type::Library ? L"" : entryPointFunction, profileStrings[(int)type],
         nullptr, 0, //arguments, _countof(arguments),
-        nullptr, 0,
+        preprocessorDefines.data(), (UINT32)preprocessorDefines.size(),
         dxcIncludeHandler.Get(), &result));
 
     // Verify the result
@@ -101,12 +101,12 @@ Shader Shader::CompileFromFile(Type type, const wchar_t* filename, const wchar_t
     return shader;
 }
 
-bool Shader::ReplaceShaderOnSuccessfulCompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction, Shader& shaderToReplace, bool throwOnFailure)
+bool Shader::ReplaceShaderOnSuccessfulCompileFromFile(Type type, const wchar_t* filename, const wchar_t* entryPointFunction, const PreprocessorDefineList& preprocessorDefines, Shader& shaderToReplace, bool throwOnFailure)
 {
     Shader newShader;
     try
     {
-        newShader = Shader::CompileFromFile(type, filename, entryPointFunction);
+        newShader = Shader::CompileFromFile(type, filename, entryPointFunction, preprocessorDefines);
     }
     catch (const std::runtime_error& exception)
     {

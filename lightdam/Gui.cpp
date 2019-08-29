@@ -93,6 +93,16 @@ void Gui::SetupUI(Application& application)
         ImGui::LabelText("Samples per Pixel", "%i", pathTracer.GetFrameNumber());
         if (ImGui::Button("Restart Sampling"))
             pathTracer.RestartSampling();
+
+        bool pathLengthFilterEnabled = pathTracer.GetPathLengthFilterEnabled();
+        if (ImGui::Checkbox("Enable PathLength Filter", &pathLengthFilterEnabled))
+            pathTracer.SetPathLengthFilterEnabled(pathLengthFilterEnabled);
+        if (pathLengthFilterEnabled)
+        {
+            float pathLengthFilterMax = pathTracer.GetPathLengthFilterMax();
+            if (ImGui::DragFloat("PathLength Filter Max", &pathLengthFilterMax, 0.05f, 0.1f, 1000.0f, "%.2f", 4.0f))
+                pathTracer.SetPathLengthFilterMax(pathLengthFilterMax);
+        }
     }
     if (ImGui::CollapsingHeader("Scene"))
     {
