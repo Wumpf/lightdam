@@ -11,9 +11,16 @@ public:
     // Copies a given texture to a internally cahced staging resource.
     void CopyTextureToStaging(const TextureResource& sourceResource, ID3D12GraphicsCommandList* commandList, ID3D12Device* device);
 
-    // Retrieves data from the staging resource and safes it to pfm.
+    enum class FileFormat
+    {
+        Pfm,
+        Bmp
+    };
+    static const char* s_fileFormatExtensions[2];
+
+    // Retrieves data from the staging resource and safes it to file.
     // User needs to ensure copy already "arrived" there.
-    void GetStagingDataAndWriteToPfm(const std::string& filename);
+    void GetStagingDataAndWriteFile(const std::string& filename, FileFormat format);
 
     bool GetHoldsUnsavedCopy() const { return m_holdsUnsavedCopy; }
 

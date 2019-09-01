@@ -4,6 +4,7 @@
 #include "dx12/Shader.h"
 #include "Camera.h"
 #include "DirectoryWatcher.h"
+#include "FrameCapture.h"
 #include <memory>
 #include <string>
 
@@ -28,7 +29,7 @@ public:
 
     void Run();
     void LoadScene(const std::string& pbrtFileName);
-    void SaveHdrImage();
+    void SaveImage(FrameCapture::FileFormat format);
 
     const class Scene& GetScene() const          { return *m_scene; }
     class PathTracer& GetPathTracer()            { return *m_pathTracer; }

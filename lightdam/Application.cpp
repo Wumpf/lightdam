@@ -152,19 +152,19 @@ void Application::LoadScene(const std::string& pbrtFileName)
     }
 }
 
-void Application::SaveHdrImage()
+void Application::SaveImage(FrameCapture::FileFormat format)
 {
     m_frameCapture->CopyTextureToStaging(m_pathTracer->GetOutputTextureResource(), m_commandList.Get(), m_device.Get());
 
-    WaitForGPUOnNextFrameFinishAndExecute([this]()
+    WaitForGPUOnNextFrameFinishAndExecute([this, format]()
         {
             std::string screenshotName;
             int i = 0;
             do
             {
-                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations).pfm";
+                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations)." + FrameCapture::s_fileFormatExtensions[(int)format];
             } while (std::ifstream(screenshotName.c_str()));
-            m_frameCapture->GetStagingDataAndWriteToPfm(screenshotName);
+            m_frameCapture->GetStagingDataAndWriteFile(screenshotName, format);
         });
 }
 

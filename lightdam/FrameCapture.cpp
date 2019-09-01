@@ -1,37 +1,59 @@
 #include "FrameCapture.h"
 #include "ErrorHandling.h"
 #include <fstream>
+#include <algorithm>
 #include "../external/d3dx12.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../external/stb/stb_image_write.h"
+
+const char* FrameCapture::s_fileFormatExtensions[2] =
+{
+    "pfm",
+    "bmp"
+};
 
 static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const std::string& filename)
 {
     std::ofstream file(filename.c_str(), std::ios::binary);
-    if (!file.bad() && !file.fail())
-    {
-        file.write("PF\n", sizeof(char) * 3);
-        file << width << " " << height << "\n";
-        file.write("-1.000000\n", sizeof(char) * 10);
-
-        for (int y = height - 1; y >= 0; --y)
-        {
-            for (uint32_t x = 0; x < width; ++x)
-            {
-                // We store iteration count in the last channel, need to normalize
-                uint32_t index = (y * width + x) * 4;
-                float color[3];
-                color[0] = rgba[index + 0] / rgba[index + 3];
-                color[1] = rgba[index + 1] / rgba[index + 3];
-                color[2] = rgba[index + 2] / rgba[index + 3];
-                file.write(reinterpret_cast<const char*>(&color), sizeof(float) * 3);
-            }
-        }
-        return true;
-    }
-    else
-    {
-        LogPrint(LogLevel::Failure, "Error writing hdr image to %s", filename.c_str());
+    if (file.bad() || file.fail())
         return false;
+    
+    file.write("PF\n", sizeof(char) * 3);
+    file << width << " " << height << "\n";
+    file.write("-1.000000\n", sizeof(char) * 10);
+
+    for (int y = height - 1; y >= 0; --y)
+    {
+        for (uint32_t x = 0; x < width; ++x)
+        {
+            // We store iteration count in the last channel, need to normalize
+            uint32_t index = (y * width + x) * 4;
+            float color[3];
+            color[0] = rgba[index + 0] / rgba[index + 3];
+            color[1] = rgba[index + 1] / rgba[index + 3];
+            color[2] = rgba[index + 2] / rgba[index + 3];
+            file.write(reinterpret_cast<const char*>(&color), sizeof(float) * 3);
+        }
     }
+    return true;
+}
+
+static bool WriteBmp(const float* rgba, uint32_t width, uint32_t height, const std::string& filename)
+{
+    std::vector<uint8_t> bmpData(width * height * 3);
+    for (int y = height - 1; y >= 0; --y)
+    {
+        for (uint32_t x = 0; x < width; ++x)
+        {
+            // We store iteration count in the last channel, need to normalize
+            const float* colorHdr = &rgba[(y * width + x) * 4];
+            uint8_t* colorLdr = &bmpData[(y * width + x) * 3];
+            colorLdr[0] = (uint8_t)std::min(powf(colorHdr[0] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
+            colorLdr[1] = (uint8_t)std::min(powf(colorHdr[1] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
+            colorLdr[2] = (uint8_t)std::min(powf(colorHdr[2] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
+        }
+    }
+    return stbi_write_bmp(filename.c_str(), (int)width, (int)height, 3, bmpData.data()) != 0;
 }
 
 void FrameCapture::CopyTextureToStaging(const TextureResource& sourceResource, ID3D12GraphicsCommandList* commandList, ID3D12Device* device)
@@ -73,9 +95,23 @@ void FrameCapture::CopyTextureToStaging(const TextureResource& sourceResource, I
     m_holdsUnsavedCopy = true;
 }
 
-void FrameCapture::GetStagingDataAndWriteToPfm(const std::string& filename)
+void FrameCapture::GetStagingDataAndWriteFile(const std::string& filename, FileFormat format)
 {
     ScopedResourceMap resourceMap(m_stagingResource);
-    WritePfm((float*)resourceMap.Get(), m_lastCopiedTextureWidth, m_lastCopiedTextureHeight, filename);
+    bool result = false;
+    switch (format)
+    {
+    case FileFormat::Pfm:
+        result = WritePfm((float*)resourceMap.Get(), m_lastCopiedTextureWidth, m_lastCopiedTextureHeight, filename);
+        break;
+    case FileFormat::Bmp:
+        result = WriteBmp((float*)resourceMap.Get(), m_lastCopiedTextureWidth, m_lastCopiedTextureHeight, filename);
+        break;
+    }
     m_holdsUnsavedCopy = false;
+
+    if (result)
+        LogPrint(LogLevel::Success, "Wrote screenshot to %s", filename.c_str());
+    else
+        LogPrint(LogLevel::Failure, "Error writing screenshot to %s", filename.c_str());
 }

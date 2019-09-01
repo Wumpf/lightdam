@@ -69,8 +69,10 @@ void Gui::SetupUI(Application& application)
     ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average 120f)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
-    if (ImGui::Button("Save Screenshot"))
-        application.SaveHdrImage();
+    if (ImGui::Button("Save Screenshot (pfm)"))
+        application.SaveImage(FrameCapture::FileFormat::Pfm);
+    if (ImGui::Button("Save Screenshot (bmp)"))
+        application.SaveImage(FrameCapture::FileFormat::Bmp);
 
     if (ImGui::CollapsingHeader("PathTracer"))
     {
