@@ -58,7 +58,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;_AMD64_;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>IMGUI_DISABLE_OBSOLETE_FUNCTIONS;NOMINMAX;_AMD64_;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -76,7 +76,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;_AMD64_;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>IMGUI_DISABLE_OBSOLETE_FUNCTIONS;NOMINMAX;_AMD64_;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -112,6 +112,7 @@
     <ClCompile Include="dx12\SwapChain.cpp" />
     <ClCompile Include="dx12\TopLevelAS.cpp" />
     <ClCompile Include="FrameCapture.cpp" />
+    <ClCompile Include="LightPathLengthVideoRecorder.cpp" />
     <ClCompile Include="LightSampler.cpp" />
     <ClCompile Include="MathUtils.cpp" />
     <ClCompile Include="PathTracer.cpp" />
@@ -150,6 +151,7 @@
     <ClInclude Include="dx12\SwapChain.h" />
     <ClInclude Include="dx12\TopLevelAS.h" />
     <ClInclude Include="FrameCapture.h" />
+    <ClInclude Include="LightPathLengthVideoRecorder.h" />
     <ClInclude Include="LightSampler.h" />
     <ClInclude Include="MathUtils.h" />
     <ClInclude Include="PathTracer.h" />

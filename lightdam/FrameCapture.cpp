@@ -1,5 +1,6 @@
 #include "FrameCapture.h"
 #include "ErrorHandling.h"
+#include "MathUtils.h"
 #include <fstream>
 #include <algorithm>
 #include "../external/d3dx12.h"
@@ -17,7 +18,7 @@ static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const s
     std::ofstream file(filename.c_str(), std::ios::binary);
     if (file.bad() || file.fail())
         return false;
-    
+
     file.write("PF\n", sizeof(char) * 3);
     file << width << " " << height << "\n";
     file.write("-1.000000\n", sizeof(char) * 10);
@@ -69,12 +70,12 @@ void FrameCapture::CopyTextureToStaging(const TextureResource& sourceResource, I
 
     if (totalResourceSize > m_stagingResource.GetSizeInBytes())
         m_stagingResource = GraphicsResource::CreateReadbackBuffer(L"FrameCapture staging resource", totalResourceSize, device);
-
+    
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT bufferFootprint = {};
     bufferFootprint.Footprint.Width = (uint32_t)sourceResource.GetWidth();
     bufferFootprint.Footprint.Height = (uint32_t)sourceResource.GetHeight();
     bufferFootprint.Footprint.Depth = 1;
-    bufferFootprint.Footprint.RowPitch = (uint32_t)fpRowPitch;
+    bufferFootprint.Footprint.RowPitch = Align((uint32_t)fpRowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
     bufferFootprint.Footprint.Format = sourceResource.GetFormat();
 
     CD3DX12_TEXTURE_COPY_LOCATION copyDest(m_stagingResource.Get(), bufferFootprint);

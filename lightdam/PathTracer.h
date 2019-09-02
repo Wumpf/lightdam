@@ -24,7 +24,7 @@ public:
     void SetScene(Scene& scene);
 
     bool GetPathLengthFilterEnabled() const                 { return m_enablePathLengthFilter; }
-    void SetPathLengthFilterEnabled(bool enablePathLengthFilter);
+    void SetPathLengthFilterEnabled(bool enablePathLengthFilter, class Application& application);
     float GetPathLengthFilterMax() const                    { return m_pathLengthFilterMax; }
     void SetPathLengthFilterMax(float pathLengthFilterMax)  { m_pathLengthFilterMax = pathLengthFilterMax; RestartSampling(); }
 
@@ -39,7 +39,7 @@ public:
     const TextureResource& GetOutputTextureResource() const { return m_outputResource; }
 
     // Number of frames sent to the GPU == number of samples per Pixel.
-    uint32_t GetFrameNumber() const { return m_frameNumber; }
+    uint32_t GetScheduledIterationNumber() const { return m_frameNumber; }
 
 private:
     bool LoadShaders(bool throwOnFailure);

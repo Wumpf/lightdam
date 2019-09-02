@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wrl/client.h>
+#include "LightPathLengthVideoRecorder.h"
 
 using namespace Microsoft::WRL;
 
@@ -21,5 +22,8 @@ private:
 
     Window* m_window;
     int m_windowProcHandlerHandle;
+
+    LightPathLengthVideoRecorder m_lightPathVideoRecorder;
+    LightPathLengthVideoRecorder::Settings m_lightPathVideoRecordingSettings;
 };
 

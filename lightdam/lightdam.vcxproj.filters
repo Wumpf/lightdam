@@ -66,6 +66,7 @@
     <ClCompile Include="dx12\ResourceUploadBatch.cpp">
       <Filter>dx12</Filter>
     </ClCompile>
+    <ClCompile Include="LightPathLengthVideoRecorder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -147,6 +148,7 @@
     <ClInclude Include="dx12\ResourceUploadBatch.h">
       <Filter>dx12</Filter>
     </ClInclude>
+    <ClInclude Include="LightPathLengthVideoRecorder.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">

@@ -25,11 +25,9 @@ public:
     Application(int argc, char** argv);
     ~Application();
 
-    static Application& GetInstance() { return *s_instance; }
-
     void Run();
     void LoadScene(const std::string& pbrtFileName);
-    void SaveImage(FrameCapture::FileFormat format);
+    void SaveImage(FrameCapture::FileFormat format, const char* filename = nullptr);
 
     const class Scene& GetScene() const          { return *m_scene; }
     class PathTracer& GetPathTracer()            { return *m_pathTracer; }

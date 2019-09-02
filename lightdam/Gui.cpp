@@ -58,16 +58,29 @@ void Gui::Draw(Application& application, ID3D12GraphicsCommandList* commandList)
     commandList->SetDescriptorHeaps(1, m_fontDescriptorHeap.GetAddressOf());
     ImGui::Render();
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+
+    m_lightPathVideoRecorder.PerIterationUpdate(application, application.GetPathTracer());
 }
 
 void Gui::SetupUI(Application& application)
 {
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
 
+    PathTracer& pathTracer = application.GetPathTracer();
+
     ImGui::Begin("Lightdam");
     ImGui::Text("%.3f ms/frame (%.1f FPS)", ImGui::GetIO().DeltaTime * 1000.0f, 1.0f / ImGui::GetIO().DeltaTime);
     ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average 120f)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::LabelText("Samples per Pixel", "%i", pathTracer.GetScheduledIterationNumber());
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
+
+    if (m_lightPathVideoRecorder.IsRecording())
+    {
+        if (ImGui::Button("Cancel Recording"))
+            m_lightPathVideoRecorder.CancelRecording();
+        ImGui::End();
+        return;
+    }
 
     if (ImGui::Button("Save Screenshot (pfm)"))
         application.SaveImage(FrameCapture::FileFormat::Pfm);
@@ -76,8 +89,6 @@ void Gui::SetupUI(Application& application)
 
     if (ImGui::CollapsingHeader("PathTracer"))
     {
-        PathTracer& pathTracer = application.GetPathTracer();
-
         const char* renderingModeLabels[] =
         {
             "Progressive Continuous",
@@ -91,20 +102,29 @@ void Gui::SetupUI(Application& application)
             if (ImGui::Button("Render Single Iteration"))
                 application.QueueSingleRenderIteration();
         }
-
-        ImGui::LabelText("Samples per Pixel", "%i", pathTracer.GetFrameNumber());
+        
         if (ImGui::Button("Restart Sampling"))
             pathTracer.RestartSampling();
 
         bool pathLengthFilterEnabled = pathTracer.GetPathLengthFilterEnabled();
         if (ImGui::Checkbox("Enable PathLength Filter", &pathLengthFilterEnabled))
-            pathTracer.SetPathLengthFilterEnabled(pathLengthFilterEnabled);
+            pathTracer.SetPathLengthFilterEnabled(pathLengthFilterEnabled, application);
         if (pathLengthFilterEnabled)
         {
             float pathLengthFilterMax = pathTracer.GetPathLengthFilterMax();
             if (ImGui::DragFloat("PathLength Filter Max", &pathLengthFilterMax, 0.05f, 0.1f, 1000.0f, "%.2f", 4.0f))
                 pathTracer.SetPathLengthFilterMax(pathLengthFilterMax);
         }
+    }
+    if (ImGui::CollapsingHeader("PathLength Video Recording"))
+    {
+        if (ImGui::Button("Start Recording"))
+            m_lightPathVideoRecorder.StartRecording(m_lightPathVideoRecordingSettings, application, pathTracer);
+        ImGui::InputFloat("PathLength Filter Start", &m_lightPathVideoRecordingSettings.minLightPathLength, 0.05f, 0.1f, "%.2f");
+        ImGui::InputFloat("PathLength Filter End", &m_lightPathVideoRecordingSettings.maxLightPathLength, 0.05f, 0.1f, "%.2f");
+        ImGui::InputScalar("# Iterations per Frame", ImGuiDataType_U32, &m_lightPathVideoRecordingSettings.numIterationsPerFrame);
+        ImGui::InputScalar("# Frames", ImGuiDataType_U32, &m_lightPathVideoRecordingSettings.numFrames);
+        ImGui::Checkbox("Exit when done", &m_lightPathVideoRecordingSettings.exitApplicationWhenDone);
     }
     if (ImGui::CollapsingHeader("Scene"))
     {

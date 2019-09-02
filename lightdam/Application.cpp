@@ -152,20 +152,20 @@ void Application::LoadScene(const std::string& pbrtFileName)
     }
 }
 
-void Application::SaveImage(FrameCapture::FileFormat format)
+void Application::SaveImage(FrameCapture::FileFormat format, const char* filename)
 {
     m_frameCapture->CopyTextureToStaging(m_pathTracer->GetOutputTextureResource(), m_commandList.Get(), m_device.Get());
 
-    WaitForGPUOnNextFrameFinishAndExecute([this, format]()
+    std::string screenshotName = filename;
+    if (!filename)
+    {
+        int i = 0;
+        do
         {
-            std::string screenshotName;
-            int i = 0;
-            do
-            {
-                screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetFrameNumber()) + " iterations)." + FrameCapture::s_fileFormatExtensions[(int)format];
-            } while (std::ifstream(screenshotName.c_str()));
-            m_frameCapture->GetStagingDataAndWriteFile(screenshotName, format);
-        });
+            screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetScheduledIterationNumber()) + " iterations)." + FrameCapture::s_fileFormatExtensions[(int)format];
+        } while (std::ifstream(screenshotName.c_str()));
+    }
+    WaitForGPUOnNextFrameFinishAndExecute([this, format, screenshotName]() { m_frameCapture->GetStagingDataAndWriteFile(screenshotName, format); });
 }
 
 void Application::CreateDeviceAndSwapChain()

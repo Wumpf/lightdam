@@ -77,10 +77,13 @@ void PathTracer::SetScene(Scene& scene)
     m_lightSampler.reset(new LightSampler(scene.GetAreaLights()));
 }
 
-void PathTracer::SetPathLengthFilterEnabled(bool enablePathLengthFilter)
+void PathTracer::SetPathLengthFilterEnabled(bool enablePathLengthFilter, Application& application)
 {
+    if (m_enablePathLengthFilter == enablePathLengthFilter)
+        return;
+
     m_enablePathLengthFilter = enablePathLengthFilter;
-    Application::GetInstance().WaitForGPUOnNextFrameFinishAndExecute([this]() { ReloadShaders(); });
+    application.WaitForGPUOnNextFrameFinishAndExecute([this]() { ReloadShaders(); });
 }
 
 void PathTracer::SetDescriptorHeap(ID3D12GraphicsCommandList4* commandList)
