@@ -7,7 +7,7 @@
 
 #include <cassert>
 
-SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12Device* device)
+SwapChain::SwapChain(const class Window& window, IDXGIFactory5* factory, ID3D12Device* device)
     : m_graphicsCommandQueue(device, L"SwapChain graphics queue")
     , m_frameIndex(0)
     , m_bufferIndex(0)
@@ -24,11 +24,12 @@ SwapChain::SwapChain(const class Window& window, IDXGIFactory4* factory, ID3D12D
     swapChainDesc.Scaling = DXGI_SCALING_NONE;
     window.GetSize(swapChainDesc.Width, swapChainDesc.Height);
 
-    // TODO, try out swapchain with tearing.
     // Since we discard frames in present and we always have more than one in flight, this shouldn't add any benefit (other than support for freesync screens etc.)
     // (this is unlike pre-FLIP where tearing was the only way to run at a higher framerate than the screen)
-    //BOOL allowTearing = FALSE;
-    //auto result = dxgiFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
+    BOOL allowTearing = FALSE;
+    ThrowIfFailed(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing)));
+    if (allowTearing)
+        swapChainDesc.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
     ComPtr<IDXGISwapChain1> swapChain;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(

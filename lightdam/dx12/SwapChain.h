@@ -9,7 +9,7 @@ using namespace Microsoft::WRL;
 class SwapChain
 {
 public:
-    SwapChain(const class Window& window, struct IDXGIFactory4* factory, struct ID3D12Device* device);
+    SwapChain(const class Window& window, struct IDXGIFactory5* factory, struct ID3D12Device* device);
     ~SwapChain();
 
     void Resize(uint32_t width, uint32_t height);
