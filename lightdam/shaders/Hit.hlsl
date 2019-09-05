@@ -25,6 +25,32 @@ bool ShadowRay(float3 worldPosition, float3 dirToLight, float lightDistance = De
     return shadowPayLoad.isHit;
 }
 
+Vertex GetSurfaceHit(Attributes attrib)
+{
+    float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+    uint primitiveIdx = 3 * PrimitiveIndex();
+    uint vertexIdx0 = IndexBuffers[MeshIndex][primitiveIdx + 0];
+    uint vertexIdx1 = IndexBuffers[MeshIndex][primitiveIdx + 1];
+    uint vertexIdx2 = IndexBuffers[MeshIndex][primitiveIdx + 2];
+    
+    Vertex outVertex;
+    outVertex.normal = normalize(
+        BarycentricLerp(
+            VertexBuffers[MeshIndex][vertexIdx0].normal,
+            VertexBuffers[MeshIndex][vertexIdx1].normal,
+            VertexBuffers[MeshIndex][vertexIdx2].normal, barycentrics)
+        );
+    [flatten] if (HitKind() == HIT_KIND_TRIANGLE_BACK_FACE)
+        outVertex.normal = -outVertex.normal;
+    
+    outVertex.texcoord = BarycentricLerp(
+            VertexBuffers[MeshIndex][vertexIdx0].texcoord,
+            VertexBuffers[MeshIndex][vertexIdx1].texcoord,
+            VertexBuffers[MeshIndex][vertexIdx2].texcoord, barycentrics);
+
+    return outVertex;
+}
+
 [shader("closesthit")]
 export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 {
@@ -37,19 +63,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     }
 #endif
 
-    float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-    uint primitiveIdx = 3 * PrimitiveIndex();
-    uint vertexIdx0 = IndexBuffers[MeshIndex][primitiveIdx + 0];
-    uint vertexIdx1 = IndexBuffers[MeshIndex][primitiveIdx + 1];
-    uint vertexIdx2 = IndexBuffers[MeshIndex][primitiveIdx + 2];
-    float3 normal = normalize(
-        BarycentricLerp(
-            VertexBuffers[MeshIndex][vertexIdx0].normal,
-            VertexBuffers[MeshIndex][vertexIdx1].normal,
-            VertexBuffers[MeshIndex][vertexIdx2].normal, barycentrics)
-        );
-    [flatten] if (HitKind() == HIT_KIND_TRIANGLE_BACK_FACE)
-        normal = -normal;
+    Vertex hit = GetSurfaceHit(attrib);
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     uint remainingBounces;
@@ -58,7 +72,12 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     payload.distance = RayTCurrent();
 
 #ifdef DEBUG_VISUALIZE_NORMALS
-    payload.radiance = normal * 0.5 + float3(0.5f,0.5f,0.5f);
+    payload.radiance = hit.normal * 0.5 + float3(0.5f,0.5f,0.5f);
+    payload.pathThroughput_remainingBounces.y = 0;
+    return;
+#endif
+#ifdef DEBUG_VISUALIZE_TEXCOORD
+    payload.radiance = float3(abs(hit.texcoord), 0.0f);
     payload.pathThroughput_remainingBounces.y = 0;
     return;
 #endif
@@ -79,7 +98,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         float lightDistanceSq = dot(dirToLight, dirToLight);
         dirToLight *= rsqrt(lightDistanceSq);
 
-        float surfaceCos = dot(dirToLight,normal);
+        float surfaceCos = dot(dirToLight, hit.normal);
         if (surfaceCos <= 0.0f)
             continue;
         float lightSampleCos = dot(-dirToLight, AreaLightSamples[i].Normal);
@@ -109,7 +128,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
     // Lambert brdf: brdfNextSample = Diffuse / PI;
     // -> throughput for Lambert: Diffuse
-    float3 throughput = Diffuse; // brdfNextSample * saturate(dot(nextRayDir, normal)) / pdf;
+    float3 throughput = Diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
 
 #ifdef RUSSIAN_ROULETTE
     float continuationProbability = saturate(GetLuminance(throughput));
@@ -125,7 +144,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     payload.pathThroughput_remainingBounces = FloatToHalf(pathThroughput, remainingBounces);
 
     float3 U, V;
-    CreateONB(normal, U, V);
-    float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, normal); // todo: use low discrepancy sampling here!
+    CreateONB(hit.normal, U, V);
+    float3 nextRayDir = SampleHemisphereCosine(Random2(payload.randomSeed), U, V, hit.normal); // todo: use low discrepancy sampling here!
     payload.nextRayDirection = PackDirection(nextRayDir);
 }

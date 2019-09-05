@@ -68,6 +68,7 @@ cbuffer MeshConstants : register (b2)
 struct Vertex
 {
     float3 normal;
+    float2 texcoord;
 };
 StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);
 StructuredBuffer<uint> IndexBuffers[] : register(t0, space101);

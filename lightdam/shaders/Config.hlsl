@@ -5,5 +5,6 @@
 
 #define NUM_BOUNCES 5 // 1 bounce is direct lighting only
 //#define DEBUG_VISUALIZE_NORMALS
+//#define DEBUG_VISUALIZE_TEXCOORD
 
 //#define RUSSIAN_ROULETTE

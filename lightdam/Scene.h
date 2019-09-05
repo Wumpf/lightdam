@@ -39,7 +39,7 @@ public:
     {
         // Position not needed since everything we need is in the accelleration datastructure!
         DirectX::SimpleMath::Vector3 normal;
-        // todo: texcoord missing
+        DirectX::SimpleMath::Vector2 texcoord;
     };
 
     // Exact constant buffer format used by all meshes.

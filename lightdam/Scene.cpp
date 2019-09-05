@@ -14,14 +14,19 @@
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
-static DirectX::XMFLOAT3 PbrtVec3ToXMFloat3(pbrt::vec3f v)
+static DirectX::XMFLOAT3 PbrtVecToXMFloat(pbrt::vec3f v)
 {
     return DirectX::XMFLOAT3{ v.x, v.y, v.z };
 }
 
-static DirectX::XMVECTOR PbrtVec3ToXMVector(pbrt::vec3f v)
+static DirectX::XMFLOAT2 PbrtVecToXMFloat(pbrt::vec2f v)
 {
-    return DirectX::XMLoadFloat3(&PbrtVec3ToXMFloat3(v));
+    return DirectX::XMFLOAT2{ v.x, v.y };
+}
+
+static DirectX::XMVECTOR PbrtVecToXMVector(pbrt::vec3f v)
+{
+    return DirectX::XMLoadFloat3(&PbrtVecToXMFloat(v));
 }
 
 static ComPtr<ID3D12GraphicsCommandList4> CreateTemporaryCommandList(ID3D12Device* device)
@@ -100,7 +105,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
         DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
-            positionBufferUploadData[vertexIdx] = PbrtVec3ToXMFloat3(instance->xfm * triangleShape->vertex[vertexIdx]);
+            positionBufferUploadData[vertexIdx] = PbrtVecToXMFloat(instance->xfm * triangleShape->vertex[vertexIdx]);
 
         // Vertices.
         auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
@@ -110,7 +115,13 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             auto normal = triangleShape->normal[vertexIdx];
             if (triangleShape->reverseOrientation)
                 normal = -normal;
-            vertices[vertexIdx].normal = PbrtVec3ToXMFloat3(normalTransformation * normal);
+            vertices[vertexIdx].normal = PbrtVecToXMFloat(normalTransformation * normal);
+            vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ 0, 0 };
+        }
+        if (triangleShape->texcoord.size() == triangleShape->vertex.size())
+        {
+            for (size_t vertexIdx = 0; vertexIdx < triangleShape->texcoord.size(); ++vertexIdx)
+                vertices[vertexIdx].texcoord = PbrtVecToXMFloat(triangleShape->texcoord[vertexIdx]);
         }
         {
             void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -119,7 +130,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
 
         // Area Lights.
         if (areaLight)
-            AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVec3ToXMFloat3(areaLight->L), outAreaLights);
+            AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
     }
     {
         void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -146,7 +157,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         }
         if (areaLight)
         {
-            constants->AreaLightRadiance = PbrtVec3ToXMFloat3(areaLight->L);
+            constants->AreaLightRadiance = PbrtVecToXMFloat(areaLight->L);
             constants->IsEmitter = 0xFFFFFFFF;
         }
         else
@@ -208,9 +219,9 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
     {
         scene->m_cameras.emplace_back();
         auto& camera = scene->m_cameras.back();
-        camera.SetPosition(PbrtVec3ToXMVector(pbrtCamera->frame.p));
-        camera.SetUp(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vy)));
-        camera.SetDirection(DirectX::XMVector3Normalize(PbrtVec3ToXMVector(pbrtCamera->frame.l.vz)));
+        camera.SetPosition(PbrtVecToXMVector(pbrtCamera->frame.p));
+        camera.SetUp(DirectX::XMVector3Normalize(PbrtVecToXMVector(pbrtCamera->frame.l.vy)));
+        camera.SetDirection(DirectX::XMVector3Normalize(PbrtVecToXMVector(pbrtCamera->frame.l.vz)));
         camera.SetFovRad(pbrtCamera->fov * ((float)M_PI / 180.0f));
         camera.SnapUpToAxis(); // Makes camera easier to control
     }
@@ -259,7 +270,7 @@ void Scene::CreateAccellerationDataStructure(ID3D12GraphicsCommandList4* command
     std::vector<BottomLevelASMesh> blasMeshes(m_meshes.size());
     for (int i = 0; i < m_meshes.size(); ++i)
     {
-        blasMeshes[i].vertexBuffer = { m_meshes[i].positionBuffer->GetGPUVirtualAddress(), sizeof(Vertex) };
+        blasMeshes[i].vertexBuffer = { m_meshes[i].positionBuffer->GetGPUVirtualAddress(), sizeof(DirectX::XMFLOAT3) };
         blasMeshes[i].vertexCount = m_meshes[i].vertexCount;
         blasMeshes[i].indexBuffer = m_meshes[i].indexBuffer->GetGPUVirtualAddress();
         blasMeshes[i].indexCount = m_meshes[i].indexCount;
