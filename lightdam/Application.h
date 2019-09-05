@@ -28,10 +28,6 @@ public:
     void Run();
     void LoadScene(const std::string& pbrtFileName);
     void SaveImage(FrameCapture::FileFormat format, const char* filename = nullptr);
-
-    const class Scene& GetScene() const          { return *m_scene; }
-    class PathTracer& GetPathTracer()            { return *m_pathTracer; }
-    class ControllableCamera& GetActiveCamera()  { return m_activeCamera; }
     
     RenderingMode GetRenderingMode() const       { return m_renderingMode; }
     void SetRenderingMode(RenderingMode newMode) { m_renderingMode = newMode; }
@@ -48,8 +44,6 @@ private:
 
     void RenderFrame();
     void PopulateCommandList();
-
-    static Application* s_instance;
 
     std::unique_ptr<class Window> m_window;
     std::unique_ptr<class SwapChain> m_swapChain;

@@ -45,28 +45,26 @@ Gui::~Gui()
     ImGui::DestroyContext();
 }
 
-void Gui::Draw(Application& application, ID3D12GraphicsCommandList* commandList)
+void Gui::Draw(Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer, ID3D12GraphicsCommandList* commandList)
 {
     // Start new frame.
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    SetupUI(application);
+    SetupUI(application, scene, activeCamera, pathTracer);
 
     // write out to command list.
     commandList->SetDescriptorHeaps(1, m_fontDescriptorHeap.GetAddressOf());
     ImGui::Render();
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 
-    m_lightPathVideoRecorder.PerIterationUpdate(application, application.GetPathTracer());
+    m_lightPathVideoRecorder.PerIterationUpdate(application, pathTracer);
 }
 
-void Gui::SetupUI(Application& application)
+void Gui::SetupUI(Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer)
 {
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
-
-    PathTracer& pathTracer = application.GetPathTracer();
 
     ImGui::Begin("Lightdam");
     ImGui::Text("%.3f ms/frame (%.1f FPS)", ImGui::GetIO().DeltaTime * 1000.0f, 1.0f / ImGui::GetIO().DeltaTime);
@@ -119,7 +117,7 @@ void Gui::SetupUI(Application& application)
     if (ImGui::CollapsingHeader("PathLength Video Recording"))
     {
         if (ImGui::Button("Start Recording"))
-            m_lightPathVideoRecorder.StartRecording(m_lightPathVideoRecordingSettings, application, pathTracer);
+            m_lightPathVideoRecorder.StartRecording(m_lightPathVideoRecordingSettings, scene.GetName(), application, pathTracer);
         ImGui::InputFloat("PathLength Filter Start", &m_lightPathVideoRecordingSettings.minLightPathLength, 0.05f, 0.1f, "%.2f");
         ImGui::InputFloat("PathLength Filter End", &m_lightPathVideoRecordingSettings.maxLightPathLength, 0.05f, 0.1f, "%.2f");
         ImGui::InputScalar("# Iterations per Frame", ImGuiDataType_U32, &m_lightPathVideoRecordingSettings.numIterationsPerFrame);
@@ -128,7 +126,6 @@ void Gui::SetupUI(Application& application)
     }
     if (ImGui::CollapsingHeader("Scene"))
     {
-        const Scene& scene = application.GetScene();
         ImGui::LabelText("Active Scene", "%s", scene.GetFilePath().c_str());
         ImGui::LabelText("Number of Meshes", "%i", scene.GetMeshes().size());
         uint64_t totalTriangleCount = 0;
@@ -137,32 +134,30 @@ void Gui::SetupUI(Application& application)
         for (int i=0; i<scene.GetCameras().size(); ++i)
         {
             if (ImGui::Button((std::string("Reset Camera to Scene Camera ") + std::to_string(i)).c_str()))
-                application.GetActiveCamera() = scene.GetCameras()[i];
+                activeCamera = scene.GetCameras()[i];
         }
     }
     if (ImGui::CollapsingHeader("Camera"))
     {
-        ControllableCamera& camera = application.GetActiveCamera();
-
-        auto pos = camera.GetPosition();
+        auto pos = activeCamera.GetPosition();
         if (ImGui::DragFloat3("Position", pos.m128_f32, 0.1f, -100.0f, 100.f))
-            camera.SetPosition(pos);
+            activeCamera.SetPosition(pos);
 
-        auto dir = camera.GetDirection();
+        auto dir = activeCamera.GetDirection();
         if (ImGui::DragFloat3("Direction", dir.m128_f32, 0.1f, -1.0f, 1.0f))
-            camera.SetDirection(DirectX::XMVector3Normalize(dir));
+            activeCamera.SetDirection(DirectX::XMVector3Normalize(dir));
 
-        auto up = camera.GetUp();
+        auto up = activeCamera.GetUp();
         if (ImGui::DragFloat3("Up", up.m128_f32, 0.1f, -1.0f, 1.0f))
-            camera.SetUp(DirectX::XMVector3Normalize(up));
+            activeCamera.SetUp(DirectX::XMVector3Normalize(up));
 
-        float fovRad = camera.GetFovRad();
+        float fovRad = activeCamera.GetFovRad();
         if (ImGui::SliderAngle("vFOV", &fovRad, 1.0f, 179.0f))
-            camera.SetFovRad(fovRad);
+            activeCamera.SetFovRad(fovRad);
 
-        float speed = camera.GetMoveSpeed();
+        float speed = activeCamera.GetMoveSpeed();
         if (ImGui::DragFloat("Speed", &speed, 1.0f, 1.0f, 1000.f))
-            camera.SetMoveSpeed(speed);
+            activeCamera.SetMoveSpeed(speed);
     }
 
     ImGui::End();

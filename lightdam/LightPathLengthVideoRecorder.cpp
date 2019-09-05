@@ -32,7 +32,7 @@ void LightPathLengthVideoRecorder::PerIterationUpdate(Application& application, 
     }
 }
 
-void LightPathLengthVideoRecorder::StartRecording(const Settings& settings, Application& application, PathTracer& pathTracer)
+void LightPathLengthVideoRecorder::StartRecording(const Settings& settings, const std::string& sceneName, Application& application, PathTracer& pathTracer)
 {
     m_numFramesLeft = settings.numFrames;
     m_settings = settings;
@@ -48,7 +48,7 @@ void LightPathLengthVideoRecorder::StartRecording(const Settings& settings, Appl
     int recordingIndex = 0;
     do
     {
-        m_recordingDirectory = recordingsFolder + application.GetScene().GetName()+ "_" + std::to_string(recordingIndex) + "/";
+        m_recordingDirectory = recordingsFolder + sceneName + "_" + std::to_string(recordingIndex) + "/";
         ++recordingIndex;
     } while (stat(m_recordingDirectory.c_str(), &info) == 0);
     

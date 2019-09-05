@@ -21,14 +21,10 @@
     #define USE_DEBUG_DEVICE
 #endif
 
-Application* Application::s_instance = nullptr;
-
 Application::Application(int argc, char** argv)
     : m_window(new Window(L"LightDam", L"LightDam", 1280, 768))
     , m_shaderDirectoryWatcher(L"shaders")
 {
-    s_instance = this;
-
     CreateDeviceAndSwapChain();
     CreateFrameResources();
 
@@ -61,8 +57,6 @@ Application::Application(int argc, char** argv)
 
 Application::~Application()
 {
-    s_instance = nullptr;
-
     m_swapChain->GetGraphicsCommandQueue().WaitUntilAllGPUWorkIsFinished();
 
     m_commandList = nullptr;
@@ -279,7 +273,7 @@ void Application::PopulateCommandList()
         m_pathTracer->SetDescriptorHeap(m_commandList.Get());
     m_iterationQueued = false;
     m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
-    m_gui->Draw(*this, m_commandList.Get());
+    m_gui->Draw(*this, *m_scene, m_activeCamera, *m_pathTracer, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

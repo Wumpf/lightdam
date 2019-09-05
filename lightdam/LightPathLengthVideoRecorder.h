@@ -17,7 +17,7 @@ public:
 
     void PerIterationUpdate(class Application& application, class PathTracer& pathTracer);
 
-    void StartRecording(const Settings& settings, class Application& application, class PathTracer& pathTracer);
+    void StartRecording(const Settings& settings, const std::string& sceneName, class Application& application, class PathTracer& pathTracer);
     
     void CancelRecording();
     bool IsRecording() const { return m_isRecording; }
