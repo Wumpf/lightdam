@@ -30,6 +30,7 @@ enum class LogLevel
 {
     Info,
     Success,
+    Warning,
     Failure
 };
 

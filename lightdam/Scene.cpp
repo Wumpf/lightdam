@@ -134,7 +134,15 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         {
             const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
             if (matteMaterial)
+            {
                 constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
+                if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
+                    LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
+            }
+            else
+            {
+                LogPrint(LogLevel::Warning, "Material type of '%s' not supported", triangleShape->material->name.c_str());
+            }
         }
         if (areaLight)
         {

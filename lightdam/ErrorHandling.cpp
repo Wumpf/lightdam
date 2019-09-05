@@ -13,11 +13,14 @@ void detail::LogPrint(LogLevel logLevel, const char* message)
 {
     constexpr int colorNormal = 15;
     constexpr int colorRed = 12;
+    constexpr int colorOrange = 6;
     constexpr int colorGreen = 10;
 
     int colorIndex = colorNormal;
     if (logLevel == LogLevel::Failure)
         colorIndex = colorRed;
+    else if (logLevel == LogLevel::Warning)
+        colorIndex = colorOrange;
     else if (logLevel == LogLevel::Success)
         colorIndex = colorGreen;
 
