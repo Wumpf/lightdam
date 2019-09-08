@@ -138,7 +138,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     {
         // Positions
         std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
-        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadResource(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
             positionBufferUploadData[vertexIdx] = PbrtVecToXMFloat(instance->xfm * triangleShape->vertex[vertexIdx]);
 
@@ -159,7 +159,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
                 vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ triangleShape->texcoord[vertexIdx].x, -triangleShape->texcoord[vertexIdx].y };
         }
         {
-            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
         }
 
@@ -168,11 +168,11 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
     }
     {
-        void* indexBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         memcpy(indexBufferUploadData, triangleShape->index.data(), indexbufferSize);
     }
     {
-        void* constantBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        void* constantBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
         auto constants = (Scene::MeshConstants*)constantBufferUploadData;
         constants->MeshIndex = index;
 
@@ -354,8 +354,8 @@ uint32_t Scene::TextureManager::GetTextureIndexForColor(const std::string& textu
         return identifierIt->second;
 
     auto texture = TextureResource::CreateTexture2D(Utf8toUtf16(textureIdentifier).c_str(), DXGI_FORMAT_R32G32B32_FLOAT, 1, 1, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, device);
-    void* textureData = resourceUpload.CreateAndMapUploadResource(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    *(DirectX::XMFLOAT3*)textureData = color;
+    auto textureData = resourceUpload.CreateAndMapUploadTexture2D(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    *(DirectX::XMFLOAT3*)textureData.pData = color;
 
     m_textureIdentifierToTextureIndex.insert(std::make_pair(textureIdentifier, (uint32_t)m_textures.size()));
     m_textures.push_back(std::move(texture));
@@ -380,8 +380,13 @@ uint32_t Scene::TextureManager::GetTextureIndexForFile(const std::string& filena
     // todo: Support single channel. (a bit tricky because then we no longer force to 4 channels meaning we need to expand whenever we encounter 3)
     DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     auto texture = TextureResource::CreateTexture2D(Utf8toUtf16(filename).c_str(), format, (uint32_t)textureWidth, (uint32_t)textureHeight, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, device);
-    void* textureData = resourceUpload.CreateAndMapUploadResource(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    memcpy(textureData, loadedImage, (size_t)4 * textureWidth * textureHeight);
+    auto textureData = resourceUpload.CreateAndMapUploadTexture2D(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    // Copy row by row since rows can have padding!
+    size_t rawRowPitch = (size_t)4 * textureWidth;
+    for (int rowIdx = 0; rowIdx < textureHeight; ++rowIdx)
+        memcpy((char*)textureData.pData + textureData.RowPitch * rowIdx, loadedImage + rawRowPitch * rowIdx, rawRowPitch);
+
     stbi_image_free(loadedImage);
 
     m_textureIdentifierToTextureIndex.insert(std::make_pair(filename.c_str(), (uint32_t)m_textures.size()));

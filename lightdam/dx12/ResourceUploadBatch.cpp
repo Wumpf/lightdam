@@ -1,6 +1,7 @@
 #include "ResourceUploadBatch.h"
 #include "../../external/d3dx12.h"
 #include "../ErrorHandling.h"
+#include <assert.h>
 
 static ID3D12Device* GetDevice(const GraphicsResource& targetResource)
 {
@@ -14,19 +15,10 @@ ResourceUploadBatch::ResourceUploadBatch(ID3D12GraphicsCommandList* commandList)
 {
 }
 
-void* ResourceUploadBatch::CreateAndMapUploadResource(GraphicsResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy)
+void* ResourceUploadBatch::CreateAndMapUploadBuffer(GraphicsResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy)
 {
-    if (targetResource.GetDesc().Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
-        CreateAndMapUploadBuffer(targetResource);
-    else
-        CreateAndMapUploadTexture(dynamic_cast<TextureResource&>(targetResource));
+    assert(targetResource.GetDesc().Dimension == D3D12_RESOURCE_DIMENSION_BUFFER);
 
-    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(targetResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, targetResourceStateAfterCopy));
-    return m_uploadBuffers.back().Map();
-}
-
-void ResourceUploadBatch::CreateAndMapUploadBuffer(GraphicsResource& targetResource)
-{
     m_uploadBuffers.emplace_back(
         (targetResource.GetName() + L"__TempUploadBuffer").c_str(),
         D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, CD3DX12_RESOURCE_DESC::Buffer(targetResource.GetSizeInBytes(), D3D12_RESOURCE_FLAG_NONE),
@@ -34,24 +26,20 @@ void ResourceUploadBatch::CreateAndMapUploadBuffer(GraphicsResource& targetResou
 
     GraphicsResource& tempResource = m_uploadBuffers.back();
     m_commandList->CopyResource(targetResource.Get(), tempResource.Get());
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(targetResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, targetResourceStateAfterCopy));
+
+    return tempResource.Map();
 }
 
-void ResourceUploadBatch::CreateAndMapUploadTexture(TextureResource& targetResource)
+D3D12_SUBRESOURCE_DATA ResourceUploadBatch::CreateAndMapUploadTexture2D(TextureResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy, uint32_t subresourceIndex)
 {
+    assert(targetResource.GetDesc().Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+
     auto device = GetDevice(targetResource);
 
-    uint32_t numRows;
-    uint64_t rowSizeInBytes, totalBytes;
+    uint64_t totalBytes;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT bufferFootprint;
-    device->GetCopyableFootprints(&targetResource.GetDesc(), 0, 1, 0, &bufferFootprint, &numRows, &rowSizeInBytes, &totalBytes); // Note: Guaranteed to be GPU agnostic.
-
-    if (totalBytes != targetResource.GetSizeInBytes())
-    {
-        // This is a normal thing but nothing in our api so far can handle this really...
-        LogPrint(LogLevel::Warning,
-            "Texture upload buffer is bigger than assumed size of the texture in bytes due to alignment constraints.\nUpload buffer size in bytes: %i, Texture size in bytes %i",
-            totalBytes, targetResource.GetSizeInBytes());
-    }
+    device->GetCopyableFootprints(&targetResource.GetDesc(), subresourceIndex, 1, 0, &bufferFootprint, nullptr, nullptr, &totalBytes); // Note: Guaranteed to be GPU agnostic.
 
     m_uploadBuffers.emplace_back(
         (targetResource.GetName() + L"__TempUploadTexture").c_str(),
@@ -60,8 +48,16 @@ void ResourceUploadBatch::CreateAndMapUploadTexture(TextureResource& targetResou
 
     GraphicsResource& tempResource = m_uploadBuffers.back();
     m_commandList->CopyTextureRegion(
-        &CD3DX12_TEXTURE_COPY_LOCATION(targetResource.Get(), 0),
+        &CD3DX12_TEXTURE_COPY_LOCATION(targetResource.Get(), subresourceIndex),
         0, 0, 0,
         &CD3DX12_TEXTURE_COPY_LOCATION(tempResource.Get(), bufferFootprint),
         nullptr);
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(targetResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, targetResourceStateAfterCopy));
+
+    D3D12_SUBRESOURCE_DATA data;
+    data.pData = tempResource.Map();
+    data.RowPitch = bufferFootprint.Footprint.RowPitch;
+    data.SlicePitch = totalBytes;
+
+    return data;
 }

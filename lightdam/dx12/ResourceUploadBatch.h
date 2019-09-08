@@ -13,16 +13,14 @@ public:
 
     // Returns writable data into a temporary upload buffer which is as large as the target resource.
     // Assumes that the target resource is in D3D12_RESOURCE_STATE_COPY_DEST state.
-    // If targetResource is a texture, this updates only the first subresource (i.e. the highest detailed mipmap)
-    void* CreateAndMapUploadResource(GraphicsResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy = D3D12_RESOURCE_STATE_GENERIC_READ);
+    void* CreateAndMapUploadBuffer(GraphicsResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy = D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    D3D12_SUBRESOURCE_DATA CreateAndMapUploadTexture2D(TextureResource& targetResource, D3D12_RESOURCE_STATES targetResourceStateAfterCopy = D3D12_RESOURCE_STATE_GENERIC_READ, uint32_t subresourceIndex = 0);
 
     // Call this only if you know all copy actions are finished.
     void Clear() { m_uploadBuffers.clear(); }
 
 private:
-    void CreateAndMapUploadBuffer(GraphicsResource& targetResource);
-    void CreateAndMapUploadTexture(TextureResource& targetResource);
-
     std::vector<GraphicsResource> m_uploadBuffers;
     ID3D12GraphicsCommandList* m_commandList;
 };
