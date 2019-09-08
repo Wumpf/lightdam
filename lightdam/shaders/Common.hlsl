@@ -60,7 +60,9 @@ cbuffer AreaLightSamples_ : register(b1)
 cbuffer MeshConstants : register (b2)
 {
     uint MeshIndex; // Index used for vertex/index buffer.
-    float3 Diffuse; // Diffuse reflectivity (lambert)
+    uint TextureIndex;
+    //uint2 _padding0;
+
     float3 AreaLightRadiance;
     bool IsEmitter;
 }
@@ -72,6 +74,7 @@ struct Vertex
 };
 StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);
 StructuredBuffer<uint> IndexBuffers[] : register(t0, space101);
+Texture2D DiffuseTextures[] : register(t0, space102);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);

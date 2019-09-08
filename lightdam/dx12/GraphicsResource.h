@@ -42,6 +42,7 @@ public:
     static GraphicsResource CreateReadbackBuffer(const wchar_t* name, uint64_t size, ID3D12Device* device);
 
     uint64_t GetSizeInBytes() const;
+    const D3D12_RESOURCE_DESC& GetDesc() const { return m_desc; }
     const std::wstring& GetName() const { return m_name; }
 
 protected:

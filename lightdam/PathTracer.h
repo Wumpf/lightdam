@@ -43,7 +43,7 @@ public:
 
 private:
     bool LoadShaders(bool throwOnFailure);
-    void CreateRootSignatures(uint32_t maxNumMeshes);
+    void CreateRootSignatures(uint32_t maxNumMeshes, uint32_t maxNumTextures);
     void CreateRaytracingPipelineObject();
     void CreateShaderBindingTable(const Scene& scene);
     void CreateDescriptorHeap(const Scene& scene);

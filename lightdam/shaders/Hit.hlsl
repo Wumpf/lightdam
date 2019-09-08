@@ -89,6 +89,8 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         payload.pathThroughput_remainingBounces.y = 0;
         return;
     }
+    
+    float3 diffuse = DiffuseTextures[TextureIndex].Load(int3(0,0,0)); // todo: texcoord
 
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
@@ -108,7 +110,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         // Hemispherical lambert emitter.
         // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
         // We factor this in last, to keep the scalar factors together (== multiplying by lightSampleCos)
-        float3 brdfLightSample = Diffuse / PI;
+        float3 brdfLightSample = diffuse / PI;
         float irradianceLightSample = surfaceCos / lightDistanceSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
         float lightDistance = sqrt(lightDistanceSq);
 
@@ -126,9 +128,9 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
     // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
-    // Lambert brdf: brdfNextSample = Diffuse / PI;
-    // -> throughput for Lambert: Diffuse
-    float3 throughput = Diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
+    // Lambert brdf: brdfNextSample = diffuse / PI;
+    // -> throughput for Lambert: diffuse
+    float3 throughput = diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
 
 #ifdef RUSSIAN_ROULETTE
     float continuationProbability = saturate(GetLuminance(throughput));

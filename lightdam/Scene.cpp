@@ -83,7 +83,7 @@ static void GenerateNormalsIfMissing(const pbrt::TriangleMesh::SP& triangleShape
 }
 
 static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, 
-                                std::vector<Scene::AreaLightTriangle>& outAreaLights, ResourceUploadBatch& resourceUpload)
+                                std::vector<Scene::AreaLightTriangle>& outAreaLights, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload)
 {
     // Generate normals on the shape, so we can use the binary format of the pbrt library next time.
     GenerateNormalsIfMissing(triangleShape);
@@ -103,7 +103,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     {
         // Positions
         std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
-        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadResource(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
             positionBufferUploadData[vertexIdx] = PbrtVecToXMFloat(instance->xfm * triangleShape->vertex[vertexIdx]);
 
@@ -124,7 +124,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
                 vertices[vertexIdx].texcoord = PbrtVecToXMFloat(triangleShape->texcoord[vertexIdx]);
         }
         {
-            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
         }
 
@@ -133,27 +133,25 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
     }
     {
-        void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        void* indexBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         memcpy(indexBufferUploadData, triangleShape->index.data(), indexbufferSize);
     }
     {
-        void* constantBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        void* constantBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
         auto constants = (Scene::MeshConstants*)constantBufferUploadData;
         constants->MeshIndex = index;
-        constants->Diffuse = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
-        if (triangleShape->material)
+
+        const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
+        if (matteMaterial)
         {
-            const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
-            if (matteMaterial)
-            {
-                constants->Diffuse = DirectX::XMFLOAT3(matteMaterial->kd.x, matteMaterial->kd.y, matteMaterial->kd.z);
-                if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
-                    LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
-            }
-            else
-            {
-                LogPrint(LogLevel::Warning, "Material type of '%s' not supported", triangleShape->material->name.c_str());
-            }
+            constants->TextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(matteMaterial->kd), resourceUpload, device);
+            if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
+                LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
+        }
+        else
+        {
+            constants->TextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
+            LogPrint(LogLevel::Warning, "Material type of '%s' not supported", triangleShape->material->name.c_str());
         }
         if (areaLight)
         {
@@ -235,7 +233,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
             if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, uploadBatch));
+                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, scene->m_textureManager, uploadBatch));
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
@@ -288,6 +286,24 @@ const std::string Scene::GetName() const
     auto lastDot = m_originFilePath.find_last_of('.');
     return m_originFilePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
 }
+
+uint32_t Scene::TextureManager::GetTextureIndexForColor(DirectX::XMFLOAT3 color, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
+{
+    std::string textureIdentifier = std::to_string(color.x) + std::to_string(color.y) + std::to_string(color.z);
+    auto identifierIt = m_textureIdentifierToTextureIndex.find(textureIdentifier);
+    if (identifierIt != m_textureIdentifierToTextureIndex.end())
+        return identifierIt->second;
+
+    auto texture = TextureResource::CreateTexture2D(Utf8toUtf16(textureIdentifier).c_str(), DXGI_FORMAT_R32G32B32_FLOAT, 1, 1, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, device);
+    void* textureData = resourceUpload.CreateAndMapUploadResource(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    *(DirectX::XMFLOAT3*)textureData = color;
+
+    m_textureIdentifierToTextureIndex.insert(std::make_pair(textureIdentifier, (uint32_t)m_textures.size()));
+    m_textures.push_back(std::move(texture));
+    
+    return (uint32_t)m_textures.size() - 1;
+}
+
 
 Scene::Scene()
 {

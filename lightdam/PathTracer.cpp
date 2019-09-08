@@ -71,7 +71,7 @@ void PathTracer::ReloadShaders()
 void PathTracer::SetScene(Scene& scene)
 {
     CreateDescriptorHeap(scene);
-    CreateRootSignatures((uint32_t)scene.GetMeshes().size());
+    CreateRootSignatures((uint32_t)scene.GetMeshes().size(), (uint32_t)scene.GetTextures().size());
     CreateRaytracingPipelineObject();
     CreateShaderBindingTable(scene);
     m_lightSampler.reset(new LightSampler(scene.GetAreaLights()));
@@ -155,7 +155,8 @@ void PathTracer::CreateDescriptorHeap(const Scene& scene)
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    descriptorHeapDesc.NumDescriptors = 3 + (UINT)scene.GetMeshes().size() * 2; // output srv, output uav, scene tlas, vertex buffers, index buffers
+    // output srv, output uav, scene tlas, vertex buffers, index buffers, textures
+    descriptorHeapDesc.NumDescriptors = (UINT)(3 + scene.GetMeshes().size() * 2 + scene.GetTextures().size());
     ThrowIfFailed(m_device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_staticDescriptorHeap)));
 
     WriteOutputBufferDescriptorsToDescriptorHeap();
@@ -202,6 +203,23 @@ void PathTracer::CreateDescriptorHeap(const Scene& scene)
         indexBufferView.Buffer.StructureByteStride = sizeof(uint32_t);
         indexBufferView.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
         m_device->CreateShaderResourceView(mesh.indexBuffer.Get(), &indexBufferView, descriptorHandle);
+    }
+
+    // Textures
+    for (const auto& texture : scene.GetTextures())
+    {
+        descriptorHandle.Offset(m_descriptorHeapIncrementSize);
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC textureView = {};
+        textureView.Format = DXGI_FORMAT_UNKNOWN;
+        textureView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        textureView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        textureView.Texture2D.MostDetailedMip = 0;
+        textureView.Texture2D.MipLevels = -1;
+        textureView.Texture2D.PlaneSlice = 0;
+        textureView.Texture2D.ResourceMinLODClamp = 0.0f;
+
+        m_device->CreateShaderResourceView(texture.Get(), &textureView, descriptorHandle);
     }
 }
 
@@ -270,7 +288,7 @@ bool PathTracer::LoadShaders(bool throwOnFailure)
     return Shader::ReplaceShadersOnSuccessfulCompileFromFiles(shaderLoads, shaders, throwOnFailure);
 }
 
-void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes)
+void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes, uint32_t maxNumTextures)
 {
     // Global root signature
     {
@@ -281,6 +299,7 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes)
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),                      // TLAS in t0, space0
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumMeshes, 0, 100, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),         // Vertex buffers
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumMeshes, 0, 101, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),         // Index buffers
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumTextures, 0, 102, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),       // Textures
         };
         params[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);  // Global constant buffer at b0
         params[1].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC);  // Area light sample constant buffer at b1
