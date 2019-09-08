@@ -7,9 +7,11 @@
 #include "StringConversion.h"
 
 #include "../external/d3dx12.h"
+#include "../external/stb/stb_image.h"
 #include "pbrtParser/Scene.h"
 
 #include <fstream>
+#include <algorithm>
 
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
@@ -27,6 +29,27 @@ static DirectX::XMFLOAT2 PbrtVecToXMFloat(pbrt::vec2f v)
 static DirectX::XMVECTOR PbrtVecToXMVector(pbrt::vec3f v)
 {
     return DirectX::XMLoadFloat3(&PbrtVecToXMFloat(v));
+}
+
+static std::string GetDirectory(const std::string& path)
+{
+    size_t lastSlash = path.find_last_of('/');
+    size_t lastBackSlash = path.find_last_of('\\');
+    size_t lastDelimiter = std::string::npos;
+
+    if (lastSlash != std::string::npos)
+    {
+        if (lastBackSlash == std::string::npos)
+            lastDelimiter = lastSlash;
+        else
+            lastDelimiter = std::max(lastSlash, lastBackSlash);
+    }
+    else if (lastBackSlash != std::string::npos)
+        lastDelimiter = lastBackSlash;
+    else
+        return "";
+
+    return path.substr(0, lastDelimiter);
 }
 
 static ComPtr<ID3D12GraphicsCommandList4> CreateTemporaryCommandList(ID3D12Device* device)
@@ -82,8 +105,20 @@ static void GenerateNormalsIfMissing(const pbrt::TriangleMesh::SP& triangleShape
         normal = pbrt::math::normalize(normal);
 }
 
+static uint32_t LoadPbrtTexture(const std::string& sceneDirectory, const pbrt::Texture::SP& texture, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
+{
+    const auto& imageTexture = texture->as<pbrt::ImageTexture>();
+    if (!imageTexture)
+    {
+        LogPrint(LogLevel::Warning, "Texture type '%s' not supported", texture->toString().c_str());
+        return textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
+    }
+
+    return textures.GetTextureIndexForFile(sceneDirectory + "/" + imageTexture->fileName, resourceUpload, device);
+}
+
 static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, 
-                                std::vector<Scene::AreaLightTriangle>& outAreaLights, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload)
+                                std::vector<Scene::AreaLightTriangle>& outAreaLights, const std::string& sceneDirectory, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload)
 {
     // Generate normals on the shape, so we can use the binary format of the pbrt library next time.
     GenerateNormalsIfMissing(triangleShape);
@@ -121,7 +156,7 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         if (triangleShape->texcoord.size() == triangleShape->vertex.size())
         {
             for (size_t vertexIdx = 0; vertexIdx < triangleShape->texcoord.size(); ++vertexIdx)
-                vertices[vertexIdx].texcoord = PbrtVecToXMFloat(triangleShape->texcoord[vertexIdx]);
+                vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ triangleShape->texcoord[vertexIdx].x, -triangleShape->texcoord[vertexIdx].y };
         }
         {
             void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadResource(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
@@ -141,17 +176,34 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
         auto constants = (Scene::MeshConstants*)constantBufferUploadData;
         constants->MeshIndex = index;
 
-        const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>();
-        if (matteMaterial)
+        if (const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>())
         {
-            constants->TextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(matteMaterial->kd), resourceUpload, device);
+            if (matteMaterial->map_kd)
+                constants->DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, matteMaterial->map_kd, textures, resourceUpload, device);
+            else
+                constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(matteMaterial->kd), resourceUpload, device);
+
             if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
                 LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
         }
+        else if (const auto substrateMaterial = triangleShape->material->as<pbrt::SubstrateMaterial>())
+        {
+            if (substrateMaterial->map_kd)
+                constants->DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, substrateMaterial->map_kd, textures, resourceUpload, device);
+            else
+                constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(substrateMaterial->kd), resourceUpload, device);
+
+            if (substrateMaterial->map_ks)
+                LogPrint(LogLevel::Warning, "Map KS parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+            else if (substrateMaterial->ks.x || substrateMaterial->ks.y || substrateMaterial->ks.y)
+                LogPrint(LogLevel::Warning, "ks parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+            if (substrateMaterial->map_bump)
+                LogPrint(LogLevel::Warning, "Bump parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+        }
         else
         {
-            constants->TextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
-            LogPrint(LogLevel::Warning, "Material type of '%s' not supported", triangleShape->material->name.c_str());
+            constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
+            LogPrint(LogLevel::Warning, "Material type of material '%s' not supported", triangleShape->material->name.c_str());
         }
         if (areaLight)
         {
@@ -224,6 +276,8 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
         camera.SnapUpToAxis(); // Makes camera easier to control
     }
 
+    std::string sceneDirectory = GetDirectory(pbrtFilePath);
+
     auto commandList = CreateTemporaryCommandList(device);
     ResourceUploadBatch uploadBatch(commandList.Get());
 
@@ -233,7 +287,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
             if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, scene->m_textureManager, uploadBatch));
+                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, sceneDirectory, scene->m_textureManager, uploadBatch));
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
@@ -290,6 +344,11 @@ const std::string Scene::GetName() const
 uint32_t Scene::TextureManager::GetTextureIndexForColor(DirectX::XMFLOAT3 color, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
 {
     std::string textureIdentifier = std::to_string(color.x) + std::to_string(color.y) + std::to_string(color.z);
+    return GetTextureIndexForColor(textureIdentifier, color, resourceUpload, device);
+}
+
+uint32_t Scene::TextureManager::GetTextureIndexForColor(const std::string& textureIdentifier, DirectX::XMFLOAT3 color, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
+{
     auto identifierIt = m_textureIdentifierToTextureIndex.find(textureIdentifier);
     if (identifierIt != m_textureIdentifierToTextureIndex.end())
         return identifierIt->second;
@@ -300,10 +359,35 @@ uint32_t Scene::TextureManager::GetTextureIndexForColor(DirectX::XMFLOAT3 color,
 
     m_textureIdentifierToTextureIndex.insert(std::make_pair(textureIdentifier, (uint32_t)m_textures.size()));
     m_textures.push_back(std::move(texture));
-    
     return (uint32_t)m_textures.size() - 1;
 }
 
+uint32_t Scene::TextureManager::GetTextureIndexForFile(const std::string& filename, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
+{
+    auto identifierIt = m_textureIdentifierToTextureIndex.find(filename);
+    if (identifierIt != m_textureIdentifierToTextureIndex.end())
+        return identifierIt->second;
+
+    int textureWidth, textureHeight, numComp;
+    stbi_uc* loadedImage = stbi_load(filename.c_str(), &textureWidth, &textureHeight, &numComp, 4);
+    if (!loadedImage)
+    {
+        LogPrint(LogLevel::Failure, "Failed to load image from \"%s\": %s", filename.c_str(), stbi_failure_reason());
+        GetTextureIndexForColor(filename, DirectX::XMFLOAT3(1.0f, 0.0f, 1.0f), resourceUpload, device);
+    }
+
+    // todo: Use stbi_is_hdr to detect hdr formats.
+    // todo: Support single channel. (a bit tricky because then we no longer force to 4 channels meaning we need to expand whenever we encounter 3)
+    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    auto texture = TextureResource::CreateTexture2D(Utf8toUtf16(filename).c_str(), format, (uint32_t)textureWidth, (uint32_t)textureHeight, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, device);
+    void* textureData = resourceUpload.CreateAndMapUploadResource(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    memcpy(textureData, loadedImage, (size_t)4 * textureWidth * textureHeight);
+    stbi_image_free(loadedImage);
+
+    m_textureIdentifierToTextureIndex.insert(std::make_pair(filename.c_str(), (uint32_t)m_textures.size()));
+    m_textures.push_back(std::move(texture));
+    return (uint32_t)m_textures.size() - 1;
+}
 
 Scene::Scene()
 {

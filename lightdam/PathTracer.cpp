@@ -314,9 +314,12 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes, uint32_t maxNumText
     }
     // Hit local root signature.
     {
+        CD3DX12_STATIC_SAMPLER_DESC staticSamplers[1];
+        staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+
         CD3DX12_ROOT_PARAMETER1 params[1];
         params[0].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Constant buffer at b2
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc(_countof(params), params, _countof(staticSamplers), staticSamplers, D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
         m_signatureSceneData = CreateRootSignature(L"SceneData", m_device.Get(), rootSignatureDesc);
     }
 }

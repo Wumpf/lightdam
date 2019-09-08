@@ -4,7 +4,6 @@
 #include <fstream>
 #include <algorithm>
 #include "../external/d3dx12.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../external/stb/stb_image_write.h"
 
 const char* FrameCapture::s_fileFormatExtensions[2] =

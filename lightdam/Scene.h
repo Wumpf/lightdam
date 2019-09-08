@@ -48,7 +48,7 @@ public:
     struct MeshConstants
     {
         uint32_t MeshIndex;
-        uint32_t TextureIndex;
+        uint32_t DiffuseTextureIndex;
         uint32_t _padding0[2];
         DirectX::XMFLOAT3 AreaLightRadiance;
         uint32_t IsEmitter;
@@ -85,6 +85,9 @@ public:
 
         std::vector<TextureResource> m_textures;
         std::unordered_map<std::string, uint32_t> m_textureIdentifierToTextureIndex;
+
+    private:
+        uint32_t GetTextureIndexForColor(const std::string& textureIdentifier, DirectX::XMFLOAT3 color, ResourceUploadBatch& resourceUpload, ID3D12Device* device);
     };
 
 private:

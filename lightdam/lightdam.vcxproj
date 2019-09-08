@@ -120,6 +120,7 @@
     <ClCompile Include="Gui.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="StbImpls.cpp" />
     <ClCompile Include="StringConversion.cpp" />
     <ClCompile Include="ToneMapper.cpp" />
     <ClCompile Include="Window.cpp" />
@@ -137,6 +138,8 @@
     <ClInclude Include="..\external\imgui\imstb_textedit.h" />
     <ClInclude Include="..\external\imgui\imstb_truetype.h" />
     <ClInclude Include="..\external\SimpleMath.h" />
+    <ClInclude Include="..\external\stb\stb_image.h" />
+    <ClInclude Include="..\external\stb\stb_image_write.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DirectoryWatcher.h" />

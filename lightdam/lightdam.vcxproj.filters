@@ -67,6 +67,7 @@
       <Filter>dx12</Filter>
     </ClCompile>
     <ClCompile Include="LightPathLengthVideoRecorder.cpp" />
+    <ClCompile Include="StbImpls.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -149,6 +150,12 @@
       <Filter>dx12</Filter>
     </ClInclude>
     <ClInclude Include="LightPathLengthVideoRecorder.h" />
+    <ClInclude Include="..\external\stb\stb_image.h">
+      <Filter>external\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\stb\stb_image_write.h">
+      <Filter>external\stb</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="external">
@@ -168,6 +175,9 @@
     </Filter>
     <Filter Include="dx12">
       <UniqueIdentifier>{8902e900-b022-40e1-a7c2-a27f7138d772}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\stb">
+      <UniqueIdentifier>{739ac7b8-8471-4f12-b0a1-faf83fb25aa2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -90,7 +90,12 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         return;
     }
     
-    float3 diffuse = DiffuseTextures[TextureIndex].Load(int3(0,0,0)); // todo: texcoord
+    float3 diffuse = DiffuseTextures[DiffuseTextureIndex].SampleLevel(SamplerLinear, hit.texcoord, 0).xyz;
+#ifdef DEBUG_VISUALIZE_DIFFUSETEXTURE
+    payload.radiance = diffuse;
+    payload.pathThroughput_remainingBounces.y = 0;
+    return;
+#endif
 
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
