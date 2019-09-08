@@ -153,10 +153,11 @@ void Application::SaveImage(FrameCapture::FileFormat format, const char* filenam
     std::string screenshotName;
     if (!filename)
     {
-        int i = 0;
+        int i = -1;
         do
         {
-            screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetScheduledIterationNumber()) + " iterations)." + FrameCapture::s_fileFormatExtensions[(int)format];
+            screenshotName = m_scene->GetName() + " - " + std::to_string(m_pathTracer->GetScheduledIterationNumber()) + " iterations - " + 
+                std::to_string(++i) + "." + FrameCapture::s_fileFormatExtensions[(int)format];
         } while (std::ifstream(screenshotName.c_str()));
     }
     else
