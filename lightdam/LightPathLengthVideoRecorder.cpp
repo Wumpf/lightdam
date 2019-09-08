@@ -37,7 +37,6 @@ void LightPathLengthVideoRecorder::StartRecording(const Settings& settings, cons
     m_numFramesLeft = settings.numFrames;
     m_settings = settings;
 
-    application.SetRenderingMode(Application::RenderingMode::ProgressiveContinous);
     pathTracer.SetPathLengthFilterEnabled(true, application);
     pathTracer.SetPathLengthFilterMax(m_settings.minLightPathLength);
 

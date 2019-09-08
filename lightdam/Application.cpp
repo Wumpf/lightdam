@@ -269,13 +269,13 @@ void Application::PopulateCommandList()
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
-    if (m_renderingMode == RenderingMode::ProgressiveContinous || m_iterationQueued)
+    if (m_renderIterationQueued)
         m_pathTracer->DrawIteration(m_commandList.Get(), m_activeCamera);
     else
         m_pathTracer->SetDescriptorHeap(m_commandList.Get());
-    m_iterationQueued = false;
+    m_renderIterationQueued = false;
     m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
-    m_gui->Draw(*this, *m_scene, m_activeCamera, *m_pathTracer, m_commandList.Get());
+    m_gui->UpdateAndDraw(*this, *m_scene, m_activeCamera, *m_pathTracer, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

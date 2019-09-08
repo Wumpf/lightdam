@@ -7,6 +7,7 @@
 #include "FrameCapture.h"
 #include <memory>
 #include <string>
+#include <chrono>
 
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
@@ -16,12 +17,6 @@ using namespace Microsoft::WRL;
 class Application
 {
 public:
-    enum class RenderingMode
-    {
-        ProgressiveContinous,
-        ProgressiveManual,
-    };
-
     Application(int argc, char** argv);
     ~Application();
 
@@ -29,9 +24,7 @@ public:
     void LoadScene(const std::string& pbrtFileName);
     void SaveImage(FrameCapture::FileFormat format, const char* filename = nullptr);
     
-    RenderingMode GetRenderingMode() const       { return m_renderingMode; }
-    void SetRenderingMode(RenderingMode newMode) { m_renderingMode = newMode; }
-    void QueueSingleRenderIteration()            { m_iterationQueued = true; }
+    void DoSamplingIterationInNextFrame() { m_renderIterationQueued = true; }
 
     using OnRenderFinishedCallback = std::function<void()>;
     void WaitForGPUOnNextFrameFinishAndExecute(const OnRenderFinishedCallback& callback) { m_onRenderFinishedCallbacks.push_back(callback); }
@@ -60,8 +53,7 @@ private:
 
     ComPtr<struct ID3D12Device5>             m_device;
 
-    RenderingMode m_renderingMode = RenderingMode::ProgressiveContinous;
-    bool m_iterationQueued = false;
+    bool m_renderIterationQueued = false;
 
     std::vector<OnRenderFinishedCallback> m_onRenderFinishedCallbacks;
 };
