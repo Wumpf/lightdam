@@ -207,6 +207,9 @@
     <CopyFileToFolders Include="shaders\Random.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="shaders\Config.hlsl">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\external\SimpleMath.inl">
