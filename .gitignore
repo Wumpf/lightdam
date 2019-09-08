@@ -6,6 +6,7 @@ lightdam/imgui.ini
 lightdam.args.json
 # screenshots
 *.pfm
+*.bmp
 lightdam/LightPathLengthVideos
 
 ##############################################

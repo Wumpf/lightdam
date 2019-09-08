@@ -150,7 +150,7 @@ void Application::SaveImage(FrameCapture::FileFormat format, const char* filenam
 {
     m_frameCapture->CopyTextureToStaging(m_pathTracer->GetOutputTextureResource(), m_commandList.Get(), m_device.Get());
 
-    std::string screenshotName = filename;
+    std::string screenshotName;
     if (!filename)
     {
         int i = 0;
@@ -159,6 +159,8 @@ void Application::SaveImage(FrameCapture::FileFormat format, const char* filenam
             screenshotName = m_scene->GetName() + " (" + std::to_string(m_pathTracer->GetScheduledIterationNumber()) + " iterations)." + FrameCapture::s_fileFormatExtensions[(int)format];
         } while (std::ifstream(screenshotName.c_str()));
     }
+    else
+        screenshotName = filename;
     WaitForGPUOnNextFrameFinishAndExecute([this, format, screenshotName]() { m_frameCapture->GetStagingDataAndWriteFile(screenshotName, format); });
 }
 
