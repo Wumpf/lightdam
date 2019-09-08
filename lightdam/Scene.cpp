@@ -105,6 +105,11 @@ static void GenerateNormalsIfMissing(const pbrt::TriangleMesh::SP& triangleShape
         normal = pbrt::math::normalize(normal);
 }
 
+struct Material
+{
+    uint32_t DiffuseTextureIndex;
+};
+
 static uint32_t LoadPbrtTexture(const std::string& sceneDirectory, const pbrt::Texture::SP& texture, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
 {
     const auto& imageTexture = texture->as<pbrt::ImageTexture>();
@@ -117,16 +122,49 @@ static uint32_t LoadPbrtTexture(const std::string& sceneDirectory, const pbrt::T
     return textures.GetTextureIndexForFile(sceneDirectory + "/" + imageTexture->fileName, resourceUpload, device);
 }
 
+static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt::Material::SP& material, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
+{
+    Material output;
+
+    if (const auto matteMaterial = material->as<pbrt::MatteMaterial>())
+    {
+        if (matteMaterial->map_kd)
+            output.DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, matteMaterial->map_kd, textures, resourceUpload, device);
+        else
+            output.DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(matteMaterial->kd), resourceUpload, device);
+
+        if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
+            LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
+    }
+    else if (const auto substrateMaterial = material->as<pbrt::SubstrateMaterial>())
+    {
+        if (substrateMaterial->map_kd)
+            output.DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, substrateMaterial->map_kd, textures, resourceUpload, device);
+        else
+            output.DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(substrateMaterial->kd), resourceUpload, device);
+
+        if (substrateMaterial->map_ks)
+            LogPrint(LogLevel::Warning, "Map KS parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+        else if (substrateMaterial->ks.x || substrateMaterial->ks.y || substrateMaterial->ks.z)
+            LogPrint(LogLevel::Warning, "ks parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+        if (substrateMaterial->map_bump)
+            LogPrint(LogLevel::Warning, "Bump parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+    }
+    else
+    {
+        output.DiffuseTextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
+        LogPrint(LogLevel::Warning, "Material type of material '%s' not supported", material->name.c_str());
+    }
+
+    return output;
+}
+
 static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& triangleShape, const pbrt::Instance::SP& instance, ID3D12Device5* device, 
-                                std::vector<Scene::AreaLightTriangle>& outAreaLights, const std::string& sceneDirectory, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload)
+                                std::vector<Scene::AreaLightTriangle>& outAreaLights, ResourceUploadBatch& resourceUpload, Scene::MeshConstants*& outMeshConstantUploadBuffer)
 {
     // Generate normals on the shape, so we can use the binary format of the pbrt library next time.
     GenerateNormalsIfMissing(triangleShape);
 
-    pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
-
-    // todo: Handle material & textures
-    //shape->material
     Scene::Mesh mesh;
     mesh.positionBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " Positions").c_str(), sizeof(DirectX::XMFLOAT3) * triangleShape->vertex.size(), device);
     mesh.vertexBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " VB").c_str(), sizeof(Scene::Vertex) * triangleShape->vertex.size(), device);
@@ -135,83 +173,55 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
     mesh.indexBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " IB").c_str(), indexbufferSize, device);
     mesh.indexCount = (uint32_t)triangleShape->index.size() * 3;
     mesh.constantBuffer = GraphicsResource::CreateStaticBuffer(Utf8toUtf16(instance->object->name + " CB").c_str(), sizeof(Scene::MeshConstants), device);
+    
+    // Positions
+    std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
+    DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
+        positionBufferUploadData[vertexIdx] = PbrtVecToXMFloat(instance->xfm * triangleShape->vertex[vertexIdx]);
+
+    // Vertices.
+    auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
+    std::vector<Scene::Vertex> vertices(triangleShape->vertex.size());
+    for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
     {
-        // Positions
-        std::vector<DirectX::XMFLOAT3> positions(triangleShape->vertex.size());
-        DirectX::XMFLOAT3* positionBufferUploadData = (DirectX::XMFLOAT3*)resourceUpload.CreateAndMapUploadBuffer(mesh.positionBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
-            positionBufferUploadData[vertexIdx] = PbrtVecToXMFloat(instance->xfm * triangleShape->vertex[vertexIdx]);
-
-        // Vertices.
-        auto normalTransformation = pbrt::math::inverse_transpose(instance->xfm.l);
-        std::vector<Scene::Vertex> vertices(triangleShape->vertex.size());
-        for (size_t vertexIdx = 0; vertexIdx < triangleShape->vertex.size(); ++vertexIdx)
-        {
-            auto normal = triangleShape->normal[vertexIdx];
-            if (triangleShape->reverseOrientation)
-                normal = -normal;
-            vertices[vertexIdx].normal = PbrtVecToXMFloat(normalTransformation * normal);
-            vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ 0, 0 };
-        }
-        if (triangleShape->texcoord.size() == triangleShape->vertex.size())
-        {
-            for (size_t vertexIdx = 0; vertexIdx < triangleShape->texcoord.size(); ++vertexIdx)
-                vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ triangleShape->texcoord[vertexIdx].x, -triangleShape->texcoord[vertexIdx].y };
-        }
-        {
-            void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-            memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
-        }
-
-        // Area Lights.
-        if (areaLight)
-            AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
+        auto normal = triangleShape->normal[vertexIdx];
+        if (triangleShape->reverseOrientation)
+            normal = -normal;
+        vertices[vertexIdx].normal = PbrtVecToXMFloat(normalTransformation * normal);
+        vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ 0, 0 };
     }
+    if (triangleShape->texcoord.size() == triangleShape->vertex.size())
+    {
+        for (size_t vertexIdx = 0; vertexIdx < triangleShape->texcoord.size(); ++vertexIdx)
+            vertices[vertexIdx].texcoord = DirectX::XMFLOAT2{ triangleShape->texcoord[vertexIdx].x, -triangleShape->texcoord[vertexIdx].y };
+    }
+    {
+        void* vertexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.vertexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        memcpy(vertexBufferUploadData, vertices.data(), sizeof(Scene::Vertex) * triangleShape->vertex.size());
+    }
+
+    // Indices
     {
         void* indexBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.indexBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         memcpy(indexBufferUploadData, triangleShape->index.data(), indexbufferSize);
     }
+
+    // Constants
     {
         void* constantBufferUploadData = resourceUpload.CreateAndMapUploadBuffer(mesh.constantBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-        auto constants = (Scene::MeshConstants*)constantBufferUploadData;
-        constants->MeshIndex = index;
+        outMeshConstantUploadBuffer = (Scene::MeshConstants*)constantBufferUploadData;
+        outMeshConstantUploadBuffer->MeshIndex = index;
 
-        if (const auto matteMaterial = triangleShape->material->as<pbrt::MatteMaterial>())
-        {
-            if (matteMaterial->map_kd)
-                constants->DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, matteMaterial->map_kd, textures, resourceUpload, device);
-            else
-                constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(matteMaterial->kd), resourceUpload, device);
-
-            if (matteMaterial->sigma != 0.0f || matteMaterial->map_sigma)
-                LogPrint(LogLevel::Warning, "Sigma parameter in matte material '%s' not supported", matteMaterial->name.c_str());
-        }
-        else if (const auto substrateMaterial = triangleShape->material->as<pbrt::SubstrateMaterial>())
-        {
-            if (substrateMaterial->map_kd)
-                constants->DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, substrateMaterial->map_kd, textures, resourceUpload, device);
-            else
-                constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(substrateMaterial->kd), resourceUpload, device);
-
-            if (substrateMaterial->map_ks)
-                LogPrint(LogLevel::Warning, "Map KS parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
-            else if (substrateMaterial->ks.x || substrateMaterial->ks.y || substrateMaterial->ks.y)
-                LogPrint(LogLevel::Warning, "ks parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
-            if (substrateMaterial->map_bump)
-                LogPrint(LogLevel::Warning, "Bump parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
-        }
-        else
-        {
-            constants->DiffuseTextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
-            LogPrint(LogLevel::Warning, "Material type of material '%s' not supported", triangleShape->material->name.c_str());
-        }
+        pbrt::DiffuseAreaLightRGB::SP areaLight = triangleShape->areaLight ? triangleShape->areaLight->as<pbrt::DiffuseAreaLightRGB>() : nullptr;
         if (areaLight)
         {
-            constants->AreaLightRadiance = PbrtVecToXMFloat(areaLight->L);
-            constants->IsEmitter = 0xFFFFFFFF;
+            AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
+            outMeshConstantUploadBuffer->AreaLightRadiance = PbrtVecToXMFloat(areaLight->L);
+            outMeshConstantUploadBuffer->IsEmitter = 0xFFFFFFFF;
         }
         else
-            constants->IsEmitter = 0;
+            outMeshConstantUploadBuffer->IsEmitter = 0;
     }
 
     return mesh;
@@ -281,13 +291,28 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
     auto commandList = CreateTemporaryCommandList(device);
     ResourceUploadBatch uploadBatch(commandList.Get());
 
+    std::unordered_map<pbrt::Material*, Material> loadedMaterials;
+
     for (const pbrt::Instance::SP& instance : pbrtScene->world->instances)
     {
         for (const pbrt::Shape::SP& shape : instance->object->shapes)
         {
             const auto triangleShape = shape->as<pbrt::TriangleMesh>();
-            if (triangleShape)
-                scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, sceneDirectory, scene->m_textureManager, uploadBatch));
+            if (!triangleShape)
+            {
+                LogPrint(LogLevel::Warning, "Unsupported shape type %s", shape->toString().c_str());
+                continue;
+            }
+
+            Scene::MeshConstants* constantUploadBuffer;
+            scene->m_meshes.push_back(LoadPbrtMesh((uint32_t)scene->m_meshes.size(), triangleShape, instance, device, scene->m_areaLights, uploadBatch, constantUploadBuffer));
+            
+            auto preloadedMaterialIt = loadedMaterials.find(shape->material.get());
+            if (preloadedMaterialIt == loadedMaterials.end())
+                preloadedMaterialIt = loadedMaterials.insert(std::make_pair(shape->material.get(), LoadPbrtMaterial(sceneDirectory, shape->material, scene->m_textureManager, uploadBatch, device))).first;
+            
+            const auto& material = preloadedMaterialIt->second;
+            constantUploadBuffer->DiffuseTextureIndex = material.DiffuseTextureIndex;
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
