@@ -6,7 +6,6 @@ A DXR toy raytracer named after the light dams mentioned in Terry Prattchett's C
 
 * write a proper readme
 * materials & lighting
-    * textures
     * specular/more materials
     * support lights other than area lights [...]
     * sampling
@@ -14,6 +13,6 @@ A DXR toy raytracer named after the light dams mentioned in Terry Prattchett's C
     * other light transport algorithms
         * bidirectional path tracing
         * photon mapping
-* video on how light arrives over time - this was the original motivation for the project!
 * upload more scenes to repository
+* russian roulette per warp (can I query?) instead of per ray for higher efficiency
 * ...
