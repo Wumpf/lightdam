@@ -35,8 +35,7 @@ private:
 
     void OnWindowResize();
 
-    void RenderFrame();
-    void PopulateCommandList();
+    void RenderFrame(float timeSinceLastFrame);
 
     std::unique_ptr<class Window> m_window;
     std::unique_ptr<class SwapChain> m_swapChain;

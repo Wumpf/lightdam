@@ -45,37 +45,41 @@ Gui::~Gui()
     ImGui::DestroyContext();
 }
 
-void Gui::UpdateAndDraw(Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer, ID3D12GraphicsCommandList* commandList)
+void Gui::UpdateAndDraw(float timeSinceLastFrame, Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer, ID3D12GraphicsCommandList* commandList)
 {
     // Start new frame.
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    SetupUI(application, scene, activeCamera, pathTracer);
+    m_lightPathVideoRecorder.PerIterationUpdate(application, pathTracer);
+
+    // Queue application render iterations.
+    if (m_lightPathVideoRecorder.IsRecording() || m_renderConfiguration.mode == RenderingConfiguration::Mode::Continous ||
+        (m_renderConfiguration.mode == RenderingConfiguration::Mode::FixedIterationCount && pathTracer.GetScheduledIterationNumber() < m_renderConfiguration.fixedIterationCount) ||
+        (m_renderConfiguration.mode == RenderingConfiguration::Mode::FixedApproxRenderTime && m_timeSpentRenderingSinceLastReset < m_renderConfiguration.fixedApproximateRenderTimeS))
+    {
+        application.DoSamplingIterationInNextFrame();
+        m_timeSpentRenderingSinceLastReset += timeSinceLastFrame; // This is quite inaccurate - misses the time the last frame takes and takes in the time of a frame before we start rendering.
+    }
+
+    SetupUI(timeSinceLastFrame, application, scene, activeCamera, pathTracer);
 
     // write out to command list.
     commandList->SetDescriptorHeaps(1, m_fontDescriptorHeap.GetAddressOf());
     ImGui::Render();
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
-
-    m_lightPathVideoRecorder.PerIterationUpdate(application, pathTracer);
-
-    // Queue application render iterations.
-    if (m_lightPathVideoRecorder.IsRecording() || m_renderConfiguration.mode == RenderingConfiguration::Mode::Continous)
-        application.DoSamplingIterationInNextFrame();
-    else if (m_renderConfiguration.mode == RenderingConfiguration::Mode::FixedIterationCount && pathTracer.GetScheduledIterationNumber() < m_renderConfiguration.fixedIterationCount)
-        application.DoSamplingIterationInNextFrame();
 }
 
-void Gui::SetupUI(Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer)
+void Gui::SetupUI(float timeSinceLastFrame, Application& application, const Scene& scene, ControllableCamera& activeCamera, PathTracer& pathTracer)
 {
     static const auto categoryTextColor = ImVec4(1, 1, 0, 1);
 
     ImGui::Begin("Lightdam");
-    ImGui::Text("%.3f ms/frame (%.1f FPS)", ImGui::GetIO().DeltaTime * 1000.0f, 1.0f / ImGui::GetIO().DeltaTime);
-    ImGui::Text("%.3f ms/frame (%.1f FPS) (rolling average 120f)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::LabelText("Pathtracer iterations", "%i", pathTracer.GetScheduledIterationNumber());
+    ImGui::Text("%.3f ms/frame (%.1f FPS)", timeSinceLastFrame * 1000.0f, 1.0f / timeSinceLastFrame);
+    ImGui::Text("# iterations %i", pathTracer.GetScheduledIterationNumber());
+    if (m_renderConfiguration.mode != RenderingConfiguration::Mode::ManualIteration)
+        ImGui::Text("Total time rendering %.02fs", m_timeSpentRenderingSinceLastReset);
     ImGui::Text("Resolution: %.0fx%.0f", ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
     if (m_lightPathVideoRecorder.IsRecording())
@@ -91,31 +95,41 @@ void Gui::SetupUI(Application& application, const Scene& scene, ControllableCame
     if (ImGui::Button("Save Screenshot (bmp)"))
         application.SaveImage(FrameCapture::FileFormat::Bmp);
 
-    if (ImGui::CollapsingHeader("Iteration Mode"))
+    if (ImGui::CollapsingHeader("Iterations"))
     {
         const char* renderingModeLabels[] =
         {
             "Continuous",
             "Manual Trigger",
             "Fixed iteration count",
+            "Approximate time limit",
         };
         if (ImGui::Combo("Mode", (int*)& m_renderConfiguration.mode, renderingModeLabels, _countof(renderingModeLabels)))
         {
+            m_timeSpentRenderingSinceLastReset = 0.0f;
             pathTracer.RestartSampling();
             application.DoSamplingIterationInNextFrame();
         }
-        if (m_renderConfiguration.mode == RenderingConfiguration::Mode::ManualIteration)
+        switch (m_renderConfiguration.mode)
         {
+        case RenderingConfiguration::Mode::ManualIteration:
             if (ImGui::Button("Render Single Iteration"))
                 application.DoSamplingIterationInNextFrame();
-        }
-        else if (m_renderConfiguration.mode == RenderingConfiguration::Mode::FixedIterationCount)
-        {
-            ImGui::InputScalar("# Iterations", ImGuiDataType_U32, &m_renderConfiguration.fixedIterationCount);
+            break;
+        case RenderingConfiguration::Mode::FixedIterationCount:
+            ImGui::DragInt("# Iterations", &m_renderConfiguration.fixedIterationCount, 1, 1, 1000);
+            break;
+        case RenderingConfiguration::Mode::FixedApproxRenderTime:
+            ImGui::DragFloat("Rendering Time", &m_renderConfiguration.fixedApproximateRenderTimeS, 0.1f, 0.1f, 24 * 60 * 60.0f, "%.01f s");
+            break;
         }
 
         if (ImGui::Button("Restart Sampling"))
+        {
+            m_timeSpentRenderingSinceLastReset = 0.0f;
             pathTracer.RestartSampling();
+            application.DoSamplingIterationInNextFrame();
+        }
     }
     if (ImGui::CollapsingHeader("PathLength Video Recording"))
     {

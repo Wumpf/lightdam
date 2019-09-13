@@ -84,7 +84,7 @@ Application::~Application()
 
 void Application::Run()
 {
-    std::chrono::duration<float> lastFrameTime;
+    std::chrono::duration<float> lastFrameTime = std::chrono::duration<float>::zero();
     while (!m_window->IsClosed())
     {
         {
@@ -93,7 +93,7 @@ void Application::Run()
             m_swapChain->BeginFrame();
             m_window->ProcessWindowMessages();
             m_activeCamera.Update(lastFrameTime.count());
-            RenderFrame();
+            RenderFrame(lastFrameTime.count());
 
             lastFrameTime = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - startTime);
         }
@@ -240,16 +240,7 @@ void Application::OnWindowResize()
     m_pathTracer->ResizeOutput(windowWidth, windowHeight);
 }
 
-void Application::RenderFrame()
-{
-    PopulateCommandList();
-
-    // Execute lists and swap.
-    m_swapChain->GetGraphicsCommandQueue().ExecuteCommandList(m_commandList.Get());
-    m_swapChain->Present();
-}
-
-void Application::PopulateCommandList()
+void Application::RenderFrame(float timeSinceLastFrame)
 {
     const unsigned int frameIndex = m_swapChain->GetCurrentFrameIndex();
 
@@ -276,10 +267,14 @@ void Application::PopulateCommandList()
         m_pathTracer->SetDescriptorHeap(m_commandList.Get());
     m_renderIterationQueued = false;
     m_toneMapper->Draw(m_commandList.Get(), m_pathTracer->GetOutputTextureDescHandle());
-    m_gui->UpdateAndDraw(*this, *m_scene, m_activeCamera, *m_pathTracer, m_commandList.Get());
+    m_gui->UpdateAndDraw(timeSinceLastFrame, *this, *m_scene, m_activeCamera, *m_pathTracer, m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_swapChain->GetCurrentRenderTarget().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
     ThrowIfFailed(m_commandList->Close());
+
+    // Execute lists and swap.
+    m_swapChain->GetGraphicsCommandQueue().ExecuteCommandList(m_commandList.Get());
+    m_swapChain->Present();
 }
