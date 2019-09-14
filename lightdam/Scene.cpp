@@ -124,7 +124,7 @@ static uint32_t LoadPbrtTexture(const std::string& sceneDirectory, const pbrt::T
 
 static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt::Material::SP& material, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
 {
-    Material output;
+    Material output = {};
 
     if (const auto matteMaterial = material->as<pbrt::MatteMaterial>())
     {
@@ -150,6 +150,29 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
         if (substrateMaterial->map_bump)
             LogPrint(LogLevel::Warning, "Bump parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
     }
+    else if (const auto metalMaterial = material->as<pbrt::MetalMaterial>())
+    {
+        if (metalMaterial->map_roughness)
+            LogPrint(LogLevel::Warning, "Map roughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (metalMaterial->map_uRoughness)
+            LogPrint(LogLevel::Warning, "Map uroughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (metalMaterial->map_vRoughness)
+            LogPrint(LogLevel::Warning, "Map vroughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (metalMaterial->uRoughness != metalMaterial->uRoughness)
+            LogPrint(LogLevel::Warning, "Non uniform roughness in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (metalMaterial->remapRoughness)
+            LogPrint(LogLevel::Warning, "remapRoughness in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (metalMaterial->map_bump)
+            LogPrint(LogLevel::Warning, "map_bump in metal material '%s' not supported", metalMaterial->name.c_str());
+        if (!metalMaterial->spectrum_eta.spd.empty() || !metalMaterial->spectrum_k.spd.empty())
+            LogPrint(LogLevel::Warning, "Spectrum for eta/k in metal material '%s' not supported", metalMaterial->name.c_str());
+
+        /*float roughness{ 0.01f };
+        vec3f       eta{ 1.f, 1.f, 1.f };
+        vec3f       k{ 1.f, 1.f, 1.f };
+        */
+    }
+
     else
     {
         output.DiffuseTextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);

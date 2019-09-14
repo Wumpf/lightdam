@@ -1,10 +1,11 @@
 #include "Common.hlsl"
+#include "Brdf.hlsl"
 
-bool ShadowRay(float3 worldPosition, float3 dirToLight, float lightDistance = DefaultRayTMax)
+bool ShadowRay(float3 worldPosition, float3 toLight, float lightDistance = DefaultRayTMax)
 {
     RayDesc shadowRay;
     shadowRay.Origin = worldPosition;
-    shadowRay.Direction = dirToLight;
+    shadowRay.Direction = toLight;
     shadowRay.TMin = DefaultRayTMin;
     shadowRay.TMax = lightDistance;
 
@@ -65,6 +66,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
     Vertex hit = GetSurfaceHit(attrib);
     float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+    float3 toView = -WorldRayDirection();
 
     uint remainingBounces;
     float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
@@ -97,26 +99,23 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     return;
 #endif
 
+    float NdotV = dot(toView, hit.normal);
+
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
     {
-        float3 dirToLight = AreaLightSamples[i].Position - worldPosition;
-        float lightDistanceSq = dot(dirToLight, dirToLight);
-        dirToLight *= rsqrt(lightDistanceSq);
+        float3 toLight = AreaLightSamples[i].Position - worldPosition;
+        float lightDistanceSq = dot(toLight, toLight);
+        toLight *= rsqrt(lightDistanceSq);
 
-        float surfaceCos = dot(dirToLight, hit.normal);
-        if (surfaceCos <= 0.0f)
+        float NdotL = dot(toLight, hit.normal);
+        if (NdotL <= 0.0f)
             continue;
-        float lightSampleCos = dot(-dirToLight, AreaLightSamples[i].Normal);
+        float lightSampleCos = dot(-toLight, AreaLightSamples[i].Normal);
         if (lightSampleCos <= 0.0f)
             continue;
 
-        // Hemispherical lambert emitter.
-        // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
-        // We factor this in last, to keep the scalar factors together (== multiplying by lightSampleCos)
-        float3 brdfLightSample = diffuse / PI;
-        float irradianceLightSample = surfaceCos / lightDistanceSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
         float lightDistance = sqrt(lightDistanceSq);
 
 #ifdef ENABLE_PATHLENGTH_FILTER
@@ -124,12 +123,25 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
             continue;
 #endif
 
-        if (ShadowRay(worldPosition, dirToLight, lightDistance))
-            irradianceLightSample = 0.0f;
+        if (ShadowRay(worldPosition, toLight, lightDistance))
+            continue;
         
-        radiance += (pathThroughput * irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
+        // Hemispherical lambert emitter.
+        // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
+        // We factor this in last, to keep the scalar factors together (== multiplying by lightSampleCos)
+
+        float3 eta = float3(2.865601, 2.119182, 1.940077);
+        float3 k = float3(3.032326, 2.056108, 1.616293);
+        float roughness = 0.1;
+        float3 brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, eta, k, roughness);
+        //float3 brdfLightSample = EvaluateLambertBrdf(diffuse);
+
+        float irradianceLightSample = NdotL / lightDistanceSq; // Need to divide by pdf for this sample. Everything was already normalized beforehand though, so no need here!
+
+        radiance += pathThroughput * (irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
     }
     payload.radiance += radiance / NUM_LIGHT_SAMPLES_PERHIT;
+
 
     // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
