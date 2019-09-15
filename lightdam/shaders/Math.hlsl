@@ -30,14 +30,15 @@ float GetLuminance(float3 rgb)
 }
 
 // Create ONB from normalized vector
-void CreateONB(in float3 n, out float3 U, out float3 V)
+void CreateONB(in float3 n, out float3x3 m)
 {
     if (abs(n.y) > abs(n.x))
-        U = float3(0.0f, n.z, -n.y); //cross(n, float3(1.0f, 0.0f, 0.0f));
+        m[0] = float3(0.0f, n.z, -n.y); //cross(n, float3(1.0f, 0.0f, 0.0f));
     else
-        U = float3(-n.z, 0.0f, n.x); //cross(n, float3(0.0f, 1.0f, 0.0f));
-    U = normalize(U);
-    V = cross(n, U);
+        m[0] = float3(-n.z, 0.0f, n.x); //cross(n, float3(0.0f, 1.0f, 0.0f));
+    m[0] = normalize(m[0]);
+    m[1] = cross(n, m[0]);
+    m[2] = n;
 }
 
 static const uint BitMask16 = 0x0000ffff;

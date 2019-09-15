@@ -38,28 +38,14 @@ float2 Random2(inout uint seed)
 
 // Sample hemisphere with cosine density.
 //    randomSample is a random number between 0-1
-float3 SampleHemisphereCosine(float2 randomSample, float3 U, float3 V, float3 W)
+float3 SampleHemisphereCosine(float2 randomSample, float3x3 tangentToWorld)
 {
-	float phi = PI_2 * randomSample.x;
-	float sinTheta = sqrt(randomSample.y);	// sin(acos(sqrt(1-x))) = sqrt(x)
-	float x = sinTheta * cos(phi);
-	float y = sinTheta * sin(phi);
-	float z = sqrt(1.0 - randomSample.y);	// sqrt(1-sin(theta)^2)
+    float phi = PI_2 * randomSample.x;
+    float sinTheta = sqrt(randomSample.y);	// sin(acos(sqrt(1-x))) = sqrt(x)
+    float3 v;
+    v.x = sinTheta * cos(phi);
+    v.y = sinTheta * sin(phi);
+    v.z = sqrt(1.0 - randomSample.y);	// sqrt(1-sin(theta)^2)
 
-    return x*U + y*V + z*W;
-}
-
-// Sample Phong lobe relative to U, V, W frame
-//    randomSample is a random number between 0-1
-float3 SamplePhongLobe(float2 randomSample, float exponent, float3 U, float3 V, float3 W)
-{
-	float phi = PI_2 * randomSample.x;
-	float power = pow(randomSample.y, 1.0 / (exponent+1.0));
-	float scale = sqrt(1.0 - power*power);
-
-	float x = cos(phi)*scale;
-	float y = sin(phi)*scale;
-	float z = power;
-
-	return x*U + y*V + z*W;
+    return mul(v, tangentToWorld);
 }
