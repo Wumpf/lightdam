@@ -67,7 +67,7 @@ cbuffer MeshConstants : register (b2)
     float3 AreaLightRadiance;
     float3 Eta;
     float Roughness;
-    float3 K;
+    float3 Ks;
 }
 
 struct Vertex

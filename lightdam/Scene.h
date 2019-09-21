@@ -55,7 +55,7 @@ public:
         float _padding0;
         DirectX::XMFLOAT3 Eta;
         float Roughness;
-        DirectX::XMFLOAT3 K;
+        DirectX::XMFLOAT3 Ks;
         float _padding1;
     };
 

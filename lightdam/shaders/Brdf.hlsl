@@ -78,6 +78,8 @@ float GGXSmithGeometricShadowingFunction(float NdotL, float NdotV, float roughne
 }
 
 // GGX microfacet terms:
+// D = GGXNormalDistribution
+// G = GGXSmithGeometricShadowingFunction
 // (D * G  / (4 * NdotV * NdotL))
 // Algebraically simplified.
 float GGXSpecular(float NdotH, float NdotL, float NdotV, float roughnessSq)

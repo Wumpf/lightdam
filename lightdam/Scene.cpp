@@ -111,7 +111,7 @@ struct Material
 
     uint32_t IsMetal;
     DirectX::XMFLOAT3 Eta;
-    DirectX::XMFLOAT3 K;
+    DirectX::XMFLOAT3 Ks;
     float Roughness;
 };
 
@@ -159,7 +159,7 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
     {
         output.IsMetal = 1;
         output.Eta = PbrtVecToXMFloat(metalMaterial->eta);
-        output.K = PbrtVecToXMFloat(metalMaterial->k);
+        output.Ks = PbrtVecToXMFloat(metalMaterial->k);
         output.Roughness = metalMaterial->roughness;
 
         if (metalMaterial->map_roughness)
@@ -350,7 +350,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
             constantUploadBuffer->DiffuseTextureIndex = material.DiffuseTextureIndex;
             constantUploadBuffer->IsMetal = material.IsMetal;
             constantUploadBuffer->Eta = material.Eta;
-            constantUploadBuffer->K = material.K;
+            constantUploadBuffer->Ks = material.Ks;
             constantUploadBuffer->Roughness = material.Roughness;
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
