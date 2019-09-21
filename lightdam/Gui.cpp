@@ -77,6 +77,8 @@ void Gui::SetupUI(float timeSinceLastFrame, Application& application, const Scen
 
     ImGui::Begin("Lightdam");
     ImGui::Text("%.3f ms/frame (%.1f FPS)", timeSinceLastFrame * 1000.0f, 1.0f / timeSinceLastFrame);
+    if (m_renderConfiguration.mode == RenderingConfiguration::Mode::Continous)
+        ImGui::Text("avg120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     ImGui::Text("# iterations %i", pathTracer.GetScheduledIterationNumber());
     if (m_renderConfiguration.mode != RenderingConfiguration::Mode::ManualIteration)
         ImGui::Text("Total time rendering %.02fs", m_timeSpentRenderingSinceLastReset);
