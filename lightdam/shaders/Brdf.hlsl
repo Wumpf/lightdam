@@ -41,36 +41,33 @@ float3 FresnelDieletricConductor(float3 eta, float3 etak, float cosTheta)
 // Juggling the math a bit I found out it is exactly the same (image comparision yielded the same). Some missunderstanding?
 // Also, what is described as "TrowbridgeReitz" there is what everyone else describes simply as GGX. 
 
-float GGXNormalDistribution(float NdotH, float roughness)
+float GGXNormalDistribution(float NdotH, float roughnessSq)
 {
-    float roughnessSqr = roughness * roughness;
-    float Distribution = NdotH * NdotH * (roughnessSqr - 1.0) + 1.0;
-    return roughnessSqr / (PI * Distribution*Distribution);
+    float Distribution = NdotH * NdotH * (roughnessSq - 1.0) + 1.0;
+    return roughnessSq / (PI * Distribution*Distribution);
 }
 
-float GGXSmithMasking(float NdotL, float NdotV, float roughness)
+float GGXSmithMasking(float NdotL, float NdotV, float roughnessSq)
 {
-    float roughnessSqr = roughness*roughness;
     float NdotVSqr = NdotV*NdotV;
-    float denomC = sqrt(roughnessSqr + (1.0f - roughnessSqr) * NdotVSqr) + NdotV;
+    float denomC = sqrt(roughnessSq + (1.0f - roughnessSq) * NdotVSqr) + NdotV;
     return 2.0f * NdotV / denomC;
 }
 
-float GGXSmithGeometricShadowingFunction(float NdotL, float NdotV, float roughness)
+float GGXSmithGeometricShadowingFunction(float NdotL, float NdotV, float roughnessSq)
 {
-    float roughnessSqr = roughness*roughness;
     float NdotLSqr = NdotL*NdotL;
     float NdotVSqr = NdotV*NdotV;
 
-    float SmithL = (2.0f * NdotL) / (NdotL + sqrt(roughnessSqr + (1.0f-roughnessSqr) * NdotLSqr));
-    float SmithV = (2.0f * NdotV) / (NdotV + sqrt(roughnessSqr + (1.0f-roughnessSqr) * NdotVSqr));
+    float SmithL = (2.0f * NdotL) / (NdotL + sqrt(roughnessSq + (1.0f-roughnessSq) * NdotLSqr));
+    float SmithV = (2.0f * NdotV) / (NdotV + sqrt(roughnessSq + (1.0f-roughnessSq) * NdotVSqr));
 
     float Gs = SmithL * SmithV;
     return Gs;
 }
 
 // todo: there's quite a lot of math in this that can be simplified!
-float3 EvaluateMicrofacetBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 eta, float3 k, float roughness)
+float3 EvaluateMicrofacetBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 eta, float3 k, float roughnessSq)
 {
     // https://github.com/mmp/pbrt-v3/blob/3e9dfd72c6a669848616a18c22f347c0810a0b51/src/core/reflection.cpp#L226
     float3 h = (toLight + toView); // half vector
@@ -83,8 +80,8 @@ float3 EvaluateMicrofacetBrdf(float NdotL, float3 toLight, float NdotV, float3 t
     h = normalize(h);
     float NdotH = dot(normal, h);
     float LdotH = dot(toLight, h);
-    float D = GGXNormalDistribution(NdotH, roughness);
-    float G = GGXSmithGeometricShadowingFunction(NdotL, NdotV, roughness); // todo: Is this equal to trowbridgereitz shadoing function (is there even such a thing?
+    float D = GGXNormalDistribution(NdotH, roughnessSq);
+    float G = GGXSmithGeometricShadowingFunction(NdotL, NdotV, roughnessSq); // todo: Is this equal to trowbridgereitz shadoing function (is there even such a thing?
     float3 F = FresnelDieletricConductor(eta, k, LdotH);
     return F * (D * G  / (4 * NdotV * NdotL));
 }

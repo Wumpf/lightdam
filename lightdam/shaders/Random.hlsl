@@ -36,9 +36,9 @@ float2 Random2(inout uint seed)
 	return float2(Random(seed), Random(seed));
 }
 
-// Sample hemisphere with cosine density.
+// Sample hemisphere with cosine density in tangent space.
 //    randomSample is a random number between 0-1
-float3 SampleHemisphereCosine(float2 randomSample, float3x3 tangentToWorld)
+float3 SampleHemisphereCosine(float2 randomSample)
 {
     float phi = PI_2 * randomSample.x;
     float sinTheta = sqrt(randomSample.y);	// sin(acos(sqrt(1-x))) = sqrt(x)
@@ -47,5 +47,5 @@ float3 SampleHemisphereCosine(float2 randomSample, float3x3 tangentToWorld)
     v.y = sinTheta * sin(phi);
     v.z = sqrt(1.0 - randomSample.y);	// sqrt(1-sin(theta)^2)
 
-    return mul(v, tangentToWorld);
+    return v;
 }

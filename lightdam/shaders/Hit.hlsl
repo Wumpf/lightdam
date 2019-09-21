@@ -104,6 +104,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     float3 eta = float3(2.865601, 2.119182, 1.940077);
     float3 k = float3(3.032326, 2.056108, 1.616293);
     float roughness = 0.1;
+    float roughnessSq = roughness * roughness;
 
     float NdotV = dot(toView, hit.normal);
 
@@ -135,7 +136,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         float3 brdfLightSample;
         if (isMetal)
         {
-            brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, eta, k, roughness);
+            brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, eta, k, roughnessSq);
         }
         else
         {
@@ -160,15 +161,15 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
     CreateONB(hit.normal, tangentToWorld);
     float2 randomSample = Random2(payload.randomSeed); // todo: use low discrepancy sampling here!
 
-    float3 nextRayDir;
+    float3 nextRayDirTS;
     float3 throughput;
     if (isMetal)
     {
         float3 toViewTS = normalize(mul(toView, transpose(tangentToWorld)));
         float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, roughness, randomSample);
-        float3 sampleDirTS = reflect(-toViewTS, microfacetNormalTS);
+        nextRayDirTS = reflect(-toViewTS, microfacetNormalTS);
 
-        float NdotL_TS = saturate(sampleDirTS.z);
+        float NdotL_TS = saturate(nextRayDirTS.z);
         float NdotV_TS = saturate(toViewTS.z);
 
         if (NdotL_TS == 0.0f || NdotV_TS == 0.0f)
@@ -178,21 +179,27 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
         }
 
         float3 F = FresnelDieletricConductor(eta, k, NdotL_TS);
-        float G1 = GGXSmithMasking(NdotL_TS, NdotV_TS, roughness);
-        float G2 = GGXSmithGeometricShadowingFunction(NdotL_TS, NdotV_TS, roughness);
+        float G1 = GGXSmithMasking(NdotL_TS, NdotV_TS, roughnessSq);
+        float G2 = GGXSmithGeometricShadowingFunction(NdotL_TS, NdotV_TS, roughnessSq);
 
         throughput = (F * (G2 / G1));
 
-        nextRayDir = normalize(mul(sampleDirTS, tangentToWorld));
+        // Without importance sampling - use this to proove previous
+        // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
+        // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
+        // -> throughput = brdfNextSample * PI
+        //nextRayDirTS = SampleHemisphereCosine(randomSample);
+        //float3 brdfNextSample = EvaluateMicrofacetBrdf(nextRayDirTS.z, nextRayDirTS, NdotV_TS, toViewTS, float3(0,0,1), eta, k, roughnessSq);
+        //throughput = brdfNextSample * PI;
     }
     else
     {
-        // pathpathThroughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
+        // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
         // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
         // Lambert brdf: brdfNextSample = diffuse / PI;
         // -> throughput for Lambert: diffuse
         throughput = diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
-        nextRayDir = SampleHemisphereCosine(randomSample, tangentToWorld);
+        nextRayDirTS = SampleHemisphereCosine(randomSample);
     }
 
 #ifdef RUSSIAN_ROULETTE
@@ -207,5 +214,6 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
     pathThroughput *= throughput;
     payload.pathThroughput_remainingBounces = FloatToHalf(pathThroughput, remainingBounces);
+    float3 nextRayDir = normalize(mul(nextRayDirTS, tangentToWorld));
     payload.nextRayDirection = PackDirection(nextRayDir);
 }
