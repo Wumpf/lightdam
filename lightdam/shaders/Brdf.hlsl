@@ -4,7 +4,6 @@
 #include "Math.hlsl"
 
 // https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
-// TODO: Use an approximation, this thing is scary!
 float3 FresnelDieletricConductor(float3 eta, float3 etak, float cosTheta)
 {  
    float cosTheta2 = cosTheta * cosTheta;
@@ -24,6 +23,18 @@ float3 FresnelDieletricConductor(float3 eta, float3 etak, float cosTheta)
    float3 Rp = Rs * (t3 - t4) / (t3 + t4);
 
    return 0.5 * (Rp + Rs);
+}
+float3 FresnelDieletricConductorApprox(float3 Eta, float3 Etak, float CosTheta)
+{
+    float  CosTheta2 = CosTheta * CosTheta;
+    float3 TwoEtaCosTheta = 2 * Eta * CosTheta;
+
+    float3 t0 = Eta * Eta + Etak * Etak;
+    float3 t1 = t0 * CosTheta2;
+    float3 Rs = (t0 - TwoEtaCosTheta + CosTheta2) / (t0 + TwoEtaCosTheta + CosTheta2);
+    float3 Rp = (t1 - TwoEtaCosTheta + 1) / (t1 + TwoEtaCosTheta + 1);
+
+    return 0.5* (Rp + Rs);
 }
 
 // PBR uses TrowbridgeReitz==GGX facet normal distribution and facet shadowing for Metals, so we follow suit here.
@@ -90,7 +101,7 @@ float3 EvaluateMicrofacetBrdf(float NdotL, float3 toLight, float NdotV, float3 t
 
     float NdotH = dot(normal, h);
     float LdotH = dot(toLight, h);
-    float3 F = FresnelDieletricConductor(eta, k, LdotH);
+    float3 F = FresnelDieletricConductorApprox(eta, k, LdotH);
     return F * GGXSpecular(NdotH, NdotL, NdotV, roughnessSq);
 }
 

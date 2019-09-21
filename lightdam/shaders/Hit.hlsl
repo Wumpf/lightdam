@@ -178,7 +178,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
             return;
         }
 
-        float3 F = FresnelDieletricConductor(eta, k, NdotL_TS);
+        float3 F = FresnelDieletricConductorApprox(eta, k, NdotL_TS);
         float G1 = GGXSmithMasking(NdotL_TS, NdotV_TS, roughnessSq);
         float G2 = GGXSmithGeometricShadowingFunction(NdotL_TS, NdotV_TS, roughnessSq);
 
