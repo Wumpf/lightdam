@@ -22,12 +22,14 @@ static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const s
     file << width << " " << height << "\n";
     file.write("-1.000000\n", sizeof(char) * 10);
 
-    for (int y = height - 1; y >= 0; --y)
+    uint64_t rowPitch = Align(width * sizeof(float) * 4, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) / sizeof(float);
+
+    for (int32_t y = height - 1; y >= 0; --y)
     {
         for (uint32_t x = 0; x < width; ++x)
         {
             // We store iteration count in the last channel, need to normalize
-            uint32_t index = (y * width + x) * 4;
+            uint32_t index = y * rowPitch + x * 4;
             float color[3];
             color[0] = rgba[index + 0] / rgba[index + 3];
             color[1] = rgba[index + 1] / rgba[index + 3];
@@ -41,17 +43,20 @@ static bool WritePfm(const float* rgba, uint32_t width, uint32_t height, const s
 static bool WriteBmp(const float* rgba, uint32_t width, uint32_t height, const std::string& filename)
 {
     std::vector<uint8_t> bmpData(width * height * 3);
-    for (int y = height - 1; y >= 0; --y)
+    const float* colorHdr = rgba;
+    for (uint32_t y = 0; y < height; ++y)
     {
         for (uint32_t x = 0; x < width; ++x)
         {
             // We store iteration count in the last channel, need to normalize
-            const float* colorHdr = &rgba[(y * width + x) * 4];
             uint8_t* colorLdr = &bmpData[(y * width + x) * 3];
-            colorLdr[0] = (uint8_t)std::min(powf(colorHdr[0] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
-            colorLdr[1] = (uint8_t)std::min(powf(colorHdr[1] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
-            colorLdr[2] = (uint8_t)std::min(powf(colorHdr[2] / colorHdr[3], 1.0f / 2.2f) * 255, 255.0f);
+            colorLdr[0] = (uint8_t)std::min(powf(rgba[0] / rgba[3], 1.0f / 2.2f) * 255, 255.0f);
+            colorLdr[1] = (uint8_t)std::min(powf(rgba[1] / rgba[3], 1.0f / 2.2f) * 255, 255.0f);
+            colorLdr[2] = (uint8_t)std::min(powf(rgba[2] / rgba[3], 1.0f / 2.2f) * 255, 255.0f);
+
+            rgba += 4;
         }
+        rgba = Align(rgba, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
     }
     return stbi_write_bmp(filename.c_str(), (int)width, (int)height, 3, bmpData.data()) != 0;
 }
