@@ -66,24 +66,32 @@ float GGXSmithGeometricShadowingFunction(float NdotL, float NdotV, float roughne
     return Gs;
 }
 
+// GGX microfacet terms:
+// (D * G  / (4 * NdotV * NdotL))
+// Algebraically simplified.
+float GGXSpecular(float NdotH, float NdotL, float NdotV, float roughnessSq)
+{
+    float D = GGXNormalDistribution(NdotH, roughnessSq);
+
+    float term_i = NdotL + sqrt(roughnessSq + (1.0f-roughnessSq) * NdotL * NdotL);
+    float term_o = NdotV + sqrt(roughnessSq + (1.0f-roughnessSq) * NdotV * NdotV);
+
+    return D / (term_i * term_o);
+}
+
 // todo: there's quite a lot of math in this that can be simplified!
 float3 EvaluateMicrofacetBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 eta, float3 k, float roughnessSq)
 {
     // https://github.com/mmp/pbrt-v3/blob/3e9dfd72c6a669848616a18c22f347c0810a0b51/src/core/reflection.cpp#L226
-    float3 h = (toLight + toView); // half vector
-
-    // degenerated cases. TODO: some of these can be caught earlier (and partly have been!)
-    // TODO: Should have assertions instead and do checks elsewhere.
-    if (NdotL <= 0.0f || NdotV <= 0.0f || all(h == float3(0,0,0)))
+    float3 h = normalize(toLight + toView); // half vector
+    // degenerated case
+    if (isinf(h.x))
         return float3(0,0,0);
 
-    h = normalize(h);
     float NdotH = dot(normal, h);
     float LdotH = dot(toLight, h);
-    float D = GGXNormalDistribution(NdotH, roughnessSq);
-    float G = GGXSmithGeometricShadowingFunction(NdotL, NdotV, roughnessSq); // todo: Is this equal to trowbridgereitz shadoing function (is there even such a thing?
     float3 F = FresnelDieletricConductor(eta, k, LdotH);
-    return F * (D * G  / (4 * NdotV * NdotL));
+    return F * GGXSpecular(NdotH, NdotL, NdotV, roughnessSq);
 }
 
 // https://schuttejoe.github.io/post/ggximportancesamplingpart2/
