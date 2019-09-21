@@ -60,11 +60,14 @@ cbuffer AreaLightSamples_ : register(b1)
 cbuffer MeshConstants : register (b2)
 {
     uint MeshIndex; // Index used for vertex/index buffer.
+    bool IsMetal;
+    bool IsEmitter;
     uint DiffuseTextureIndex;
-    //uint2 _padding0;
 
     float3 AreaLightRadiance;
-    bool IsEmitter;
+    float3 Eta;
+    float Roughness;
+    float3 K;
 }
 
 struct Vertex

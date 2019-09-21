@@ -48,10 +48,15 @@ public:
     struct MeshConstants
     {
         uint32_t MeshIndex;
-        uint32_t DiffuseTextureIndex;
-        uint32_t _padding0[2];
-        DirectX::XMFLOAT3 AreaLightRadiance;
+        uint32_t IsMetal;
         uint32_t IsEmitter;
+        uint32_t DiffuseTextureIndex;
+        DirectX::XMFLOAT3 AreaLightRadiance;
+        float _padding0;
+        DirectX::XMFLOAT3 Eta;
+        float Roughness;
+        DirectX::XMFLOAT3 K;
+        float _padding1;
     };
 
     // Info struct on an area light (CPU only!)

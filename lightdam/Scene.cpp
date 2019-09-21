@@ -108,6 +108,11 @@ static void GenerateNormalsIfMissing(const pbrt::TriangleMesh::SP& triangleShape
 struct Material
 {
     uint32_t DiffuseTextureIndex;
+
+    uint32_t IsMetal;
+    DirectX::XMFLOAT3 Eta;
+    DirectX::XMFLOAT3 K;
+    float Roughness;
 };
 
 static uint32_t LoadPbrtTexture(const std::string& sceneDirectory, const pbrt::Texture::SP& texture, Scene::TextureManager& textures, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
@@ -152,6 +157,11 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
     }
     else if (const auto metalMaterial = material->as<pbrt::MetalMaterial>())
     {
+        output.IsMetal = 1;
+        output.Eta = PbrtVecToXMFloat(metalMaterial->eta);
+        output.K = PbrtVecToXMFloat(metalMaterial->k);
+        output.Roughness = metalMaterial->roughness;
+
         if (metalMaterial->map_roughness)
             LogPrint(LogLevel::Warning, "Map roughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
         if (metalMaterial->map_uRoughness)
@@ -166,6 +176,8 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
             LogPrint(LogLevel::Warning, "map_bump in metal material '%s' not supported", metalMaterial->name.c_str());
         if (!metalMaterial->spectrum_eta.spd.empty() || !metalMaterial->spectrum_k.spd.empty())
             LogPrint(LogLevel::Warning, "Spectrum for eta/k in metal material '%s' not supported", metalMaterial->name.c_str());
+
+
 
         /*float roughness{ 0.01f };
         vec3f       eta{ 1.f, 1.f, 1.f };
@@ -336,6 +348,10 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
             
             const auto& material = preloadedMaterialIt->second;
             constantUploadBuffer->DiffuseTextureIndex = material.DiffuseTextureIndex;
+            constantUploadBuffer->IsMetal = material.IsMetal;
+            constantUploadBuffer->Eta = material.Eta;
+            constantUploadBuffer->K = material.K;
+            constantUploadBuffer->Roughness = material.Roughness;
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {
