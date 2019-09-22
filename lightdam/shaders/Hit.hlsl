@@ -57,25 +57,27 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 {
     float3 toLight = areaLightSample.Position - worldPosition;
     float lightDistanceSq = dot(toLight, toLight);
+    float lightDistanceInv = rsqrt(lightDistanceSq);
+    float lightDistance = 1.0f / lightDistanceInv;
     toLight *= rsqrt(lightDistanceSq);
 
     float NdotL = dot(toLight, hit.normal);
-    if (NdotL <= 0.0f)
-        return float3(0.0f, 0.0f, 0.0f);
     float lightSampleCos = dot(-toLight, areaLightSample.Normal);
-    if (lightSampleCos <= 0.0f)
+
+    if (ShadowRay(worldPosition, toLight, lightDistance))
         return float3(0.0f, 0.0f, 0.0f);
-
-    float lightDistance = sqrt(lightDistanceSq);
-
+    
+    // It may be anti-intuitive, but it is better to always check the ShadowRay since DXR really hates it to early before TraceRay calls!
+    // Doing these condition before tracing the shadow ray gives a major performance hit!
+    // https://devblogs.nvidia.com/rtx-best-practices/
+    // "[...] can help the compiler streamline the generated code and improve performance"
+    if (NdotL <= 0.0f || lightSampleCos <= 0.0f)
+        return float3(0.0f, 0.0f, 0.0f);
 #ifdef ENABLE_PATHLENGTH_FILTER
     if (pathLength + lightDistance > PathLengthFilterMax)
         return float3(0.0f, 0.0f, 0.0f);
 #endif
 
-    if (ShadowRay(worldPosition, toLight, lightDistance))
-        return float3(0.0f, 0.0f, 0.0f);
-    
     float3 brdfLightSample;
     if (IsMetal)
     {
