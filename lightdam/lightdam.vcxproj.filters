@@ -216,4 +216,9 @@
       <Filter>external</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\Brdf.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>
