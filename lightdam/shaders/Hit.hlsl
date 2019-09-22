@@ -52,111 +52,51 @@ Vertex GetSurfaceHit(Attributes attrib)
     return outVertex;
 }
 
-[shader("closesthit")]
-export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
+// Returns sampled radiance
+float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse, float RoughnessSq)
 {
+    float3 toLight = areaLightSample.Position - worldPosition;
+    float lightDistanceSq = dot(toLight, toLight);
+    toLight *= rsqrt(lightDistanceSq);
+
+    float NdotL = dot(toLight, hit.normal);
+    if (NdotL <= 0.0f)
+        return float3(0.0f, 0.0f, 0.0f);
+    float lightSampleCos = dot(-toLight, areaLightSample.Normal);
+    if (lightSampleCos <= 0.0f)
+        return float3(0.0f, 0.0f, 0.0f);
+
+    float lightDistance = sqrt(lightDistanceSq);
+
 #ifdef ENABLE_PATHLENGTH_FILTER
-    float pathLength = payload.distance + RayTCurrent();
-    if (pathLength > PathLengthFilterMax)
-    {
-        payload.pathThroughput_remainingBounces.y = 0;
-        return;
-    }
+    if (pathLength + lightDistance > PathLengthFilterMax)
+        return float3(0.0f, 0.0f, 0.0f);
 #endif
 
-    Vertex hit = GetSurfaceHit(attrib);
-    float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-    float3 toView = -WorldRayDirection();
-
-    uint remainingBounces;
-    float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
-    remainingBounces -= 1;
-    payload.distance = RayTCurrent();
-
-#ifdef DEBUG_VISUALIZE_NORMALS
-    payload.radiance = hit.normal * 0.5 + float3(0.5f,0.5f,0.5f);
-    payload.pathThroughput_remainingBounces.y = 0;
-    return;
-#endif
-#ifdef DEBUG_VISUALIZE_TEXCOORD
-    payload.radiance = float3(abs(hit.texcoord), 0.0f);
-    payload.pathThroughput_remainingBounces.y = 0;
-    return;
-#endif
-
-    if (IsEmitter)
-    {
-        if (remainingBounces == NUM_BOUNCES-1) // an eye ray
-            payload.radiance += AreaLightRadiance;
-        payload.pathThroughput_remainingBounces.y = 0;
-        return;
-    }
+    if (ShadowRay(worldPosition, toLight, lightDistance))
+        return float3(0.0f, 0.0f, 0.0f);
     
-    float3 diffuse = DiffuseTextures[DiffuseTextureIndex].SampleLevel(SamplerLinear, hit.texcoord, 0).xyz;
-#ifdef DEBUG_VISUALIZE_DIFFUSETEXTURE
-    payload.radiance = diffuse;
-    payload.pathThroughput_remainingBounces.y = 0;
-    return;
-#endif
-
-    float RoughnessSq = Roughness * Roughness;
-
-    float3x3 tangentToWorld;
-    CreateONB(hit.normal, tangentToWorld);
-    float3 toViewTS = mul(toView, transpose(tangentToWorld));
-    float NdotV = toViewTS.z;
-
-    uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
-    float3 radiance = float3(0.0f, 0.0f, 0.0f);
-    for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
+    float3 brdfLightSample;
+    if (IsMetal)
     {
-        float3 toLight = AreaLightSamples[i].Position - worldPosition;
-        float lightDistanceSq = dot(toLight, toLight);
-        toLight *= rsqrt(lightDistanceSq);
-
-        float NdotL = dot(toLight, hit.normal);
-        if (NdotL <= 0.0f)
-            continue;
-        float lightSampleCos = dot(-toLight, AreaLightSamples[i].Normal);
-        if (lightSampleCos <= 0.0f)
-            continue;
-
-        float lightDistance = sqrt(lightDistanceSq);
-
-#ifdef ENABLE_PATHLENGTH_FILTER
-        if (pathLength + lightDistance > PathLengthFilterMax)
-            continue;
-#endif
-
-        if (ShadowRay(worldPosition, toLight, lightDistance))
-            continue;
-        
-        float3 brdfLightSample;
-        if (IsMetal)
-        {
-            brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, Eta, Ks, RoughnessSq);
-        }
-        else
-        {
-            // Hemispherical lambert emitter.
-            brdfLightSample = EvaluateLambertBrdf(diffuse);
-        }
-
-        // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
-        float irradianceLightSample = NdotL / lightDistanceSq; // Needs to be divided by pdf for this sample. Everything was already normalized beforehand though, so no need here!
-        radiance += pathThroughput * (irradianceLightSample * lightSampleCos) * brdfLightSample * AreaLightSamples[i].Intensity; // sample radiance contribution
+        brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, Eta, Ks, RoughnessSq);
     }
-    payload.radiance += radiance / NUM_LIGHT_SAMPLES_PERHIT;
-
-    if (remainingBounces == 0)
+    else
     {
-        payload.pathThroughput_remainingBounces.y = 0;
-        return;
+        // Hemispherical lambert emitter.
+        brdfLightSample = EvaluateLambertBrdf(diffuse);
     }
 
-    float2 randomSample = Random2(payload.randomSeed); // todo: use low discrepancy sampling here!
-    float3 nextRayDirTS;
-    float3 throughput;
+    // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
+    float irradianceLightSample = NdotL / lightDistanceSq; // Needs to be divided by pdf for this sample. Everything was already normalized beforehand though, so no need here!
+    return (irradianceLightSample * lightSampleCos) * brdfLightSample * areaLightSample.Intensity; // sample radiance contribution
+}
+
+// Computes next ray direction in tangent space
+// throughput = brdf / pdf
+bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse, float RoughnessSq)
+{
+    float2 randomSample = Random2(randomSeed); // todo: use low discrepancy sampling here!
     if (IsMetal)
     {
         float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, Roughness, randomSample);
@@ -164,10 +104,7 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
         float NdotL = nextRayDirTS.z;
         if (NdotL <= 0.0f)
-        {
-            payload.pathThroughput_remainingBounces.y = 0;
-            return;
-        }
+            return false;
 
         float3 F = FresnelDieletricConductorApprox(Eta, Ks, NdotL);
         //float G1 = GGXSmithMasking(NdotL, NdotV, RoughnessSq);
@@ -196,16 +133,86 @@ export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
 
 #ifdef RUSSIAN_ROULETTE
     float continuationProbability = saturate(GetLuminance(throughput));
-    if (Random(payload.randomSeed) >= continuationProbability) // if continuationProbability is zero, path should be stoped -> >=
-    {
-        payload.pathThroughput_remainingBounces.y = 0;
-        return;
-    }
-    pathThroughput /= continuationProbability; // Only change in spectrum, no energy loss.
+    if (Random(randomSeed) >= continuationProbability) // if continuationProbability is zero, path should be stoped -> >=
+        return false;
+    throughput /= continuationProbability; // Only change in spectrum, no energy loss.
 #endif
 
+    return true;
+}
+
+void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
+{
+    // Unpack throughput/reamaining bounces.
+    uint remainingBounces;
+    float3 pathThroughput = HalfToFloat(payload.pathThroughput_remainingBounces, remainingBounces);
+    remainingBounces -= 1;
+
+    // Start by assuming this is the last event, this makes early outing easier to write!
+    payload.pathThroughput_remainingBounces.y = 0;
+
+#ifdef ENABLE_PATHLENGTH_FILTER
+    float pathLength = payload.distance + RayTCurrent();
+    if (pathLength > PathLengthFilterMax)
+        return;
+#endif
+
+    float3 worldPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+    float3x3 tangentToWorld;
+    CreateONB(hit.normal, tangentToWorld);
+    float3 toView = -WorldRayDirection();
+    float3 toViewTS = mul(toView, transpose(tangentToWorld));
+    float NdotV = toViewTS.z;
+
+#ifdef DEBUG_VISUALIZE_NORMALS
+    payload.radiance = hit.normal * 0.5 + float3(0.5f,0.5f,0.5f);
+    return;
+#endif
+#ifdef DEBUG_VISUALIZE_TEXCOORD
+    payload.radiance = float3(abs(hit.texcoord), 0.0f);
+    return;
+#endif
+
+    if (IsEmitter)
+    {
+        if (remainingBounces == NUM_BOUNCES-1) // an eye ray
+            payload.radiance += AreaLightRadiance;
+        return;
+    }
+    
+    float3 diffuse = DiffuseTextures[DiffuseTextureIndex].SampleLevel(SamplerLinear, hit.texcoord, 0).xyz;
+#ifdef DEBUG_VISUALIZE_DIFFUSETEXTURE
+    payload.radiance = diffuse;
+    return;
+#endif
+
+    float RoughnessSq = Roughness * Roughness;
+
+    // Sample area lights.
+    uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
+    float3 radiance = float3(0.0f, 0.0f, 0.0f);
+    for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
+        radiance += SampleAreaLight(AreaLightSamples[i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq);
+    payload.radiance += pathThroughput * radiance / NUM_LIGHT_SAMPLES_PERHIT;
+
+    // Compute next ray.
+    if (remainingBounces == 0)
+        return;
+    float3 nextRayDirTS;
+    float3 throughput;
+    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse, RoughnessSq))
+        return;
+
+    // Pack data for next ray.
     pathThroughput *= throughput;
     payload.pathThroughput_remainingBounces = FloatToHalf(pathThroughput, remainingBounces);
     float3 nextRayDir = mul(nextRayDirTS, tangentToWorld);
     payload.nextRayDirection = PackDirection(nextRayDir);
+    payload.distance = RayTCurrent();
+}
+
+[shader("closesthit")]
+export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
+{
+    SurfaceInteraction(payload, GetSurfaceHit(attrib));
 }
