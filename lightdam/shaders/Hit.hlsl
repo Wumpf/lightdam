@@ -193,8 +193,8 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     // Sample area lights.
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
-    for (uint i=randomSampleOffset; i<randomSampleOffset + NUM_LIGHT_SAMPLES_PERHIT; ++i)
-        radiance += SampleAreaLight(AreaLightSamples[i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq);
+    for (uint i=0; i<NUM_LIGHT_SAMPLES_PERHIT; ++i)
+        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq);
     payload.radiance += pathThroughput * radiance / NUM_LIGHT_SAMPLES_PERHIT;
 
     // Compute next ray.
