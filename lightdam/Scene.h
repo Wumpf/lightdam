@@ -34,6 +34,9 @@ public:
         GraphicsResource indexBuffer;
         uint32_t indexCount;
         GraphicsResource constantBuffer;
+
+        bool isEmitter = false;
+        bool isMetal = false;
     };
 
     // Vertex format used by all vertices in Mesh. (GPU layout)

@@ -254,9 +254,15 @@ static Scene::Mesh LoadPbrtMesh(uint32_t index, const pbrt::TriangleMesh::SP& tr
             AddAreaLights(positionBufferUploadData, vertices.data(), (uint32_t*)triangleShape->index.data(), (uint32_t)triangleShape->index.size(), PbrtVecToXMFloat(areaLight->L), outAreaLights);
             outMeshConstantUploadBuffer->AreaLightRadiance = PbrtVecToXMFloat(areaLight->L);
             outMeshConstantUploadBuffer->IsEmitter = 0xFFFFFFFF;
+            mesh.isEmitter = true;
         }
         else
+        {
             outMeshConstantUploadBuffer->IsEmitter = 0;
+            mesh.isEmitter = false;
+        }
+
+        mesh.isMetal = triangleShape->material->as<pbrt::MetalMaterial>() != nullptr;
     }
 
     return mesh;

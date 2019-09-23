@@ -53,7 +53,7 @@ Vertex GetSurfaceHit(Attributes attrib)
 }
 
 // Returns sampled radiance
-float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse, float RoughnessSq)
+float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse, float RoughnessSq, const bool isMetal)
 {
     float3 toLight = areaLightSample.Position - worldPosition;
     float lightDistanceSq = dot(toLight, toLight);
@@ -79,7 +79,7 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 #endif
 
     float3 brdfLightSample;
-    if (IsMetal)
+    if (isMetal)
     {
         brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, Eta, Ks, RoughnessSq);
     }
@@ -96,10 +96,10 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 
 // Computes next ray direction in tangent space
 // throughput = brdf / pdf
-bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse, float RoughnessSq)
+bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse, float RoughnessSq, const bool isMetal)
 {
     float2 randomSample = Random2(randomSeed); // todo: use low discrepancy sampling here!
-    if (IsMetal)
+    if (isMetal)
     {
         float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, Roughness, randomSample);
         nextRayDirTS = reflect(-toViewTS, microfacetNormalTS);
@@ -143,7 +143,7 @@ bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint r
     return true;
 }
 
-void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
+void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit, const bool isEmitter, const bool isMetal)
 {
     // Unpack throughput/reamaining bounces.
     uint remainingBounces;
@@ -175,7 +175,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     return;
 #endif
 
-    if (IsEmitter)
+    if (isEmitter)
     {
         if (remainingBounces == NUM_BOUNCES-1) // an eye ray
             payload.radiance += AreaLightRadiance;
@@ -194,7 +194,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=0; i<NUM_LIGHT_SAMPLES_PERHIT; ++i)
-        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq);
+        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq, isMetal);
     payload.radiance += pathThroughput * radiance / NUM_LIGHT_SAMPLES_PERHIT;
 
     // Compute next ray.
@@ -202,7 +202,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
         return;
     float3 nextRayDirTS;
     float3 throughput;
-    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse, RoughnessSq))
+    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse, RoughnessSq, isMetal))
         return;
 
     // Pack data for next ray.
@@ -214,7 +214,19 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
 }
 
 [shader("closesthit")]
-export void ClosestHit(inout RadianceRayHitInfo payload, Attributes attrib)
+export void ClosestHit_Regular(inout RadianceRayHitInfo payload, Attributes attrib)
 {
-    SurfaceInteraction(payload, GetSurfaceHit(attrib));
+    SurfaceInteraction(payload, GetSurfaceHit(attrib), false, false);
+}
+
+[shader("closesthit")]
+export void ClosestHit_Metal(inout RadianceRayHitInfo payload, Attributes attrib)
+{
+    SurfaceInteraction(payload, GetSurfaceHit(attrib), false, true);
+}
+
+[shader("closesthit")]
+export void ClosestHit_Emitter(inout RadianceRayHitInfo payload, Attributes attrib)
+{
+    SurfaceInteraction(payload, GetSurfaceHit(attrib), true, false);
 }

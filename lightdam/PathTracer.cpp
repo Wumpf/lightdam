@@ -36,6 +36,17 @@ struct GlobalConstants
 
 static const int randomSeed = 123;
 
+enum class HitShader
+{
+    Regular,
+    Emitter,
+    Metal,
+
+    Count
+};
+static const wchar_t* s_hitShaderNames[(int)HitShader::Count] = { L"ClosestHit_Regular", L"ClosestHit_Emitter", L"ClosestHit_Metal" };
+static const wchar_t* s_hitGroupNames[(int)HitShader::Count] = { L"HitGroup_Regular", L"HitGroup_Emitter", L"HitGroup_Metal" };
+
 PathTracer::PathTracer(ID3D12Device5* device, uint32_t outputWidth, uint32_t outputHeight)
     : m_device(device)
     , m_descriptorHeapIncrementSize(device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV))
@@ -144,7 +155,12 @@ void PathTracer::CreateShaderBindingTable(const Scene& scene)
     m_bindingTableGenerator.AddMissProgram(L"ShadowMiss", {});
     for (const auto& mesh : scene.GetMeshes())
     {
-        m_bindingTableGenerator.AddHitGroupProgram(L"HitGroup", { mesh.constantBuffer->GetGPUVirtualAddress() });
+        if (mesh.isEmitter)
+            m_bindingTableGenerator.AddHitGroupProgram(s_hitGroupNames[(int)HitShader::Emitter], { mesh.constantBuffer->GetGPUVirtualAddress() });
+        else if (mesh.isMetal)
+            m_bindingTableGenerator.AddHitGroupProgram(s_hitGroupNames[(int)HitShader::Metal], { mesh.constantBuffer->GetGPUVirtualAddress() });
+        else
+            m_bindingTableGenerator.AddHitGroupProgram(s_hitGroupNames[(int)HitShader::Regular], { mesh.constantBuffer->GetGPUVirtualAddress() });
         m_bindingTableGenerator.AddHitGroupProgram(L"ShadowHitGroup", { });
     }
     m_shaderBindingTable = m_bindingTableGenerator.Generate(m_raytracingPipelineObjectProperties.Get(), m_device.Get());
@@ -340,7 +356,7 @@ void PathTracer::CreateRaytracingPipelineObject()
 
         auto closestHitLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
         closestHitLib->SetDXILLibrary(&m_hitLibrary.GetByteCode());
-        closestHitLib->DefineExport(L"ClosestHit");
+        closestHitLib->DefineExports(s_hitShaderNames);
 
         auto shadowRayLib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
         shadowRayLib->SetDXILLibrary(&m_shadowRayLibrary.GetByteCode());
@@ -358,10 +374,11 @@ void PathTracer::CreateRaytracingPipelineObject()
         config->Config(2); // MaxRecursionDepth - ray + shadow ray
     }
     // Hit groups to export association.
+    for (int i=0; i< (int)HitShader::Count; ++i)
     {
         auto hitGroup = stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
-        hitGroup->SetHitGroupExport(L"HitGroup");
-        hitGroup->SetClosestHitShaderImport(L"ClosestHit");
+        hitGroup->SetHitGroupExport(s_hitGroupNames[i]);
+        hitGroup->SetClosestHitShaderImport(s_hitShaderNames[i]);
         hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
     }
     {
@@ -386,7 +403,7 @@ void PathTracer::CreateRaytracingPipelineObject()
             localRootSignature_hit->SetRootSignature(m_signatureSceneData.Get());
             auto localRootSignatureAssociation_hit = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
             localRootSignatureAssociation_hit->SetSubobjectToAssociate(*localRootSignature_hit);
-            localRootSignatureAssociation_hit->AddExport(L"HitGroup");
+            localRootSignatureAssociation_hit->AddExports(s_hitGroupNames);
         }
     }
 
