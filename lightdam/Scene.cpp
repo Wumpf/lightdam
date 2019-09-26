@@ -109,7 +109,7 @@ struct Material
 {
     uint32_t DiffuseTextureIndex;
 
-    uint32_t IsMetal;
+    uint32_t MaterialType;
     DirectX::XMFLOAT3 Eta;
     DirectX::XMFLOAT3 Ks;
     float Roughness;
@@ -133,6 +133,7 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
 
     if (const auto matteMaterial = material->as<pbrt::MatteMaterial>())
     {
+        output.MaterialType = Scene::MATERIAL_MATTE;
         if (matteMaterial->map_kd)
             output.DiffuseTextureIndex = LoadPbrtTexture(sceneDirectory, matteMaterial->map_kd, textures, resourceUpload, device);
         else
@@ -148,16 +149,21 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
         else
             output.DiffuseTextureIndex = textures.GetTextureIndexForColor(PbrtVecToXMFloat(substrateMaterial->kd), resourceUpload, device);
 
+        output.MaterialType = Scene::MATERIAL_SUBSTRATE;
+        output.Eta = DirectX::XMFLOAT3(0, 0, 0); // Dielectric!
+        output.Ks = PbrtVecToXMFloat(substrateMaterial->ks);
+        output.Roughness = substrateMaterial->uRoughness;
+
         if (substrateMaterial->map_ks)
             LogPrint(LogLevel::Warning, "Map KS parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
-        else if (substrateMaterial->ks.x || substrateMaterial->ks.y || substrateMaterial->ks.z)
-            LogPrint(LogLevel::Warning, "ks parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
         if (substrateMaterial->map_bump)
             LogPrint(LogLevel::Warning, "Bump parameter in substrate material '%s' not supported", substrateMaterial->name.c_str());
+        if (substrateMaterial->uRoughness != substrateMaterial->vRoughness)
+            LogPrint(LogLevel::Warning, "Non uniform roughness in substrate material '%s' not supported", substrateMaterial->name.c_str());
     }
     else if (const auto metalMaterial = material->as<pbrt::MetalMaterial>())
     {
-        output.IsMetal = 1;
+        output.MaterialType = Scene::MATERIAL_METAL;
         output.Eta = PbrtVecToXMFloat(metalMaterial->eta);
         output.Ks = PbrtVecToXMFloat(metalMaterial->k);
         output.Roughness = metalMaterial->roughness;
@@ -168,7 +174,7 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
             LogPrint(LogLevel::Warning, "Map uroughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
         if (metalMaterial->map_vRoughness)
             LogPrint(LogLevel::Warning, "Map vroughness parameter in metal material '%s' not supported", metalMaterial->name.c_str());
-        if (metalMaterial->uRoughness != metalMaterial->uRoughness)
+        if (metalMaterial->uRoughness != metalMaterial->vRoughness)
             LogPrint(LogLevel::Warning, "Non uniform roughness in metal material '%s' not supported", metalMaterial->name.c_str());
         if (metalMaterial->remapRoughness)
             LogPrint(LogLevel::Warning, "remapRoughness in metal material '%s' not supported", metalMaterial->name.c_str());
@@ -176,17 +182,11 @@ static Material LoadPbrtMaterial( const std::string& sceneDirectory, const pbrt:
             LogPrint(LogLevel::Warning, "map_bump in metal material '%s' not supported", metalMaterial->name.c_str());
         if (!metalMaterial->spectrum_eta.spd.empty() || !metalMaterial->spectrum_k.spd.empty())
             LogPrint(LogLevel::Warning, "Spectrum for eta/k in metal material '%s' not supported", metalMaterial->name.c_str());
-
-
-
-        /*float roughness{ 0.01f };
-        vec3f       eta{ 1.f, 1.f, 1.f };
-        vec3f       k{ 1.f, 1.f, 1.f };
-        */
     }
 
     else
     {
+        output.MaterialType = Scene::MATERIAL_MATTE;
         output.DiffuseTextureIndex = textures.GetTextureIndexForColor(DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f), resourceUpload, device);
         LogPrint(LogLevel::Warning, "Material type of material '%s' not supported", material->name.c_str());
     }
@@ -348,7 +348,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
             
             const auto& material = preloadedMaterialIt->second;
             constantUploadBuffer->DiffuseTextureIndex = material.DiffuseTextureIndex;
-            constantUploadBuffer->IsMetal = material.IsMetal;
+            constantUploadBuffer->MaterialType = material.MaterialType;
             constantUploadBuffer->Eta = material.Eta;
             constantUploadBuffer->Ks = material.Ks;
             constantUploadBuffer->Roughness = material.Roughness;

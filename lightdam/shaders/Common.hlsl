@@ -60,7 +60,7 @@ cbuffer AreaLightSamples_ : register(b1)
 cbuffer MeshConstants : register (b2)
 {
     uint MeshIndex; // Index used for vertex/index buffer.
-    bool IsMetal;
+    uint MaterialType;
     bool IsEmitter;
     uint DiffuseTextureIndex;
 

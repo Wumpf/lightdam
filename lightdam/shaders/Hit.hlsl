@@ -1,6 +1,10 @@
 #include "Common.hlsl"
 #include "Brdf.hlsl"
 
+#define MATERIAL_MATTE 0
+#define MATERIAL_METAL 1
+#define MATERIAL_SUBSTRATE 2
+
 bool ShadowRay(float3 worldPosition, float3 toLight, float lightDistance = DefaultRayTMax)
 {
     RayDesc shadowRay;
@@ -79,13 +83,17 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 #endif
 
     float3 brdfLightSample;
-    if (IsMetal)
+
+    if (MaterialType == MATERIAL_SUBSTRATE)
+    {
+        brdfLightSample = EvaluateAshikminShirleySubstrateBrdf(NdotL, toLight, NdotV, toView, hit.normal, Ks, RoughnessSq, diffuse);
+    }
+    else if (MaterialType == MATERIAL_METAL)
     {
         brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, Eta, Ks, RoughnessSq);
     }
     else
     {
-        // Hemispherical lambert emitter.
         brdfLightSample = EvaluateLambertBrdf(diffuse);
     }
 
@@ -99,15 +107,26 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse, float RoughnessSq)
 {
     float2 randomSample = Random2(randomSeed); // todo: use low discrepancy sampling here!
-    if (IsMetal)
+
+    // For checking importance sampling correctness:
+    // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
+    // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
+    // -> throughput = brdfNextSample * PI
+
+    if (MaterialType == MATERIAL_SUBSTRATE)
+    {
+        nextRayDirTS = SampleAshikminShirleySubstrateBrdf(toViewTS, randomSample, Ks, RoughnessSq, diffuse, throughput);
+
+        // Check importance sampling correctness:
+        //nextRayDirTS = SampleHemisphereCosine(randomSample);
+        //float3 brdfNextSample = EvaluateAshikminShirleySubstrateBrdf(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0,0,1), Ks, RoughnessSq, diffuse);
+        //throughput = brdfNextSample * PI;
+    }
+    else if (MaterialType == MATERIAL_METAL)
     {
         float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, Roughness, randomSample);
         nextRayDirTS = reflect(-toViewTS, microfacetNormalTS);
-
         float NdotL = nextRayDirTS.z;
-        if (NdotL <= 0.0f)
-            return false;
-
         float3 F = FresnelDieletricConductorApprox(Eta, Ks, NdotL);
         //float G1 = GGXSmithMasking(NdotL, NdotV, RoughnessSq);
         //float G2 = GGXSmithGeometricShadowingFunction(NdotL, NdotV, RoughnessSq);
@@ -115,10 +134,7 @@ bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint r
         float G2_div_G1 = (2.0f * NdotL) / (NdotL + sqrt(RoughnessSq + (1.0f-RoughnessSq) * NdotL * NdotL));
         throughput = F * G2_div_G1;
 
-        // Without importance sampling - use this to proove previous
-        // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
-        // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
-        // -> throughput = brdfNextSample * PI
+        // Check importance sampling correctness:
         //nextRayDirTS = SampleHemisphereCosine(randomSample);
         //float3 brdfNextSample = EvaluateMicrofacetBrdf(nextRayDirTS.z, nextRayDirTS, NdotV, toViewTS, float3(0,0,1), eta, k, RoughnessSq);
         //throughput = brdfNextSample * PI;
@@ -132,6 +148,8 @@ bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint r
         throughput = diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
         nextRayDirTS = SampleHemisphereCosine(randomSample);
     }
+    if (nextRayDirTS.z <= 0.0f)
+        return false;
 
 #ifdef RUSSIAN_ROULETTE
     float continuationProbability = saturate(GetLuminance(throughput));

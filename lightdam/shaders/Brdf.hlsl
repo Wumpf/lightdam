@@ -37,6 +37,11 @@ float3 FresnelDieletricConductorApprox(float3 Eta, float3 Etak, float CosTheta)
     return 0.5* (Rp + Rs);
 }
 
+float3 SchlickFresnel(float3 eta, float cosTheta)
+{
+    return eta + pow(1.0f - cosTheta, 5.0f) * (float3(1.0f, 1.0f, 1.0f) - eta);
+}
+
 // PBR uses TrowbridgeReitz==GGX facet normal distribution and facet shadowing for Metals, so we follow suit here.
 
 // PBR formulates Microfacet distribution functions quite a bit differently, less shader (or rather me having gamedev graphics mindset) friendly than
@@ -55,7 +60,19 @@ float3 FresnelDieletricConductorApprox(float3 Eta, float3 Etak, float CosTheta)
 float GGXNormalDistribution(float NdotH, float roughnessSq)
 {
     float Distribution = NdotH * NdotH * (roughnessSq - 1.0) + 1.0;
-    return roughnessSq / (PI * Distribution*Distribution);
+    return roughnessSq / (PI * Distribution*Distribution + 0.00000001f);
+}
+
+// Samples GGX normal distribution's half vector in tangent space
+// From https://github.com/mmp/pbrt-v3/blob/9f717d847a807793fa966cf0eaa366852efef167/src/core/microfacet.cpp#L307
+// PDF: GGXNormalDistribution * NdotH
+float3 SampleGGXNormalDistributionHalfVector(float2 randomSample, float roughnessSq)
+{
+    float tanTheta2 = roughnessSq * randomSample.x / (1.0f - randomSample.x);
+    float cosTheta = 1.0f / sqrt(1.0f + tanTheta2);
+    float sinTheta = sqrt(max(0.0f, 1.0f - cosTheta * cosTheta));
+    float phi = (2.0f * PI) * randomSample.y;
+    return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 }
 
 float GGXSmithMasking(float NdotL, float NdotV, float roughnessSq)
@@ -136,4 +153,49 @@ float3 SampleGGXVisibleNormal(float3 toViewTS, float roughness, float2 randomSam
 float3 EvaluateLambertBrdf(float3 diffuse)
 {
     return diffuse / PI;
+}
+
+float3 EvaluateAshikminShirleySubstrateBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 k, float roughnessSq, float3 diffuse)
+{
+    // Ashikhmin and Shirley two layer brdf as described in
+    // http://www.pbr-book.org/3ed-2018/Reflection_Models/Fresnel_Incidence_Effects.html#fragment-FresnelBlendPrivateData-0
+
+    float3 h = normalize(toLight + toView); // half vector
+    float NdotH = dot(normal, h);
+    float LdotH = dot(toLight, h);
+
+    float3 diffusePart = (28.0f / (23.0f * PI)) * diffuse * (float3(1.0f, 1.0f, 1.0f) - Ks) * 
+                        (1.0f - pow(1.0f - 0.5f * NdotL, 5.0f)) * 
+                        (1.0f - pow(1.0f - 0.5f * NdotV, 5.0f));
+
+    float3 specularPart = GGXNormalDistribution(NdotH, roughnessSq) / (4 * LdotH * max(NdotL, NdotV)) * SchlickFresnel(Ks, LdotH);
+    //[flatten] if (isinf(h.x) || LdotH <= 0.0f) specularPart = float3(0,0,0);
+
+    return diffusePart + specularPart;
+}
+
+float3 SampleAshikminShirleySubstrateBrdf(float3 toViewTS, float2 randomSample, float3 k, float roughnessSq, float3 diffuse, out float3 throughput)
+{
+    float3 nextRayDirTS, halfVector;
+    if (randomSample.x < 0.5f)
+    {
+        randomSample.x *= 2.0f;
+        nextRayDirTS = SampleHemisphereCosine(randomSample);
+        halfVector = normalize(toViewTS + nextRayDirTS);
+    }
+    else
+    {
+        randomSample.x = randomSample.x * 2.0f - 1.0f;
+        halfVector = SampleGGXNormalDistributionHalfVector(randomSample, roughnessSq);
+        nextRayDirTS = reflect(-toViewTS, halfVector);
+    }
+
+    // todo simplifiy:
+    float3 brdf = EvaluateAshikminShirleySubstrateBrdf(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0.0f, 0.0f, 1.0f), k, roughnessSq, diffuse);
+    float pdf = 0.5f * (
+        nextRayDirTS.z / PI + 
+        GGXNormalDistribution(halfVector.z, roughnessSq) * halfVector.z  / (4.0f * dot(toViewTS, halfVector))
+    );
+    throughput = nextRayDirTS.z * brdf / pdf;
+    return nextRayDirTS;
 }

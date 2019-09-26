@@ -4,7 +4,7 @@ A DXR toy raytracer named after the light dams mentioned in Terry Prattchett's C
 
 ## Scenes
 
-Uses PBRT scene format, but supports only a very limited subset. Console output generously informs about shortcomings. Where supported, it tries to stick closely to the spec though.
+Uses PBRT scene format, but supports only a very limited subset. Console output informs about shortcomings.
 
 ## todo & things to try
 

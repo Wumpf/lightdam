@@ -43,12 +43,19 @@ public:
         DirectX::SimpleMath::Vector3 normal;
         DirectX::SimpleMath::Vector2 texcoord;
     };
+    
+    enum MaterialType
+    {
+        MATERIAL_MATTE = 0,
+        MATERIAL_METAL = 1,
+        MATERIAL_SUBSTRATE = 2,
+    };
 
     // Constant buffer format used by all meshes. (GPU layout)
     struct MeshConstants
     {
         uint32_t MeshIndex;
-        uint32_t IsMetal;
+        uint32_t MaterialType;
         uint32_t IsEmitter;
         uint32_t DiffuseTextureIndex;
         DirectX::XMFLOAT3 AreaLightRadiance;
