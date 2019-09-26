@@ -1,5 +1,8 @@
 #include "Common.hlsl"
 
+// Raytracing output texture, accessed as a UAV
+RWTexture2D<float4> gOutput : register(u0, space0);
+
 void TraceRadianceRay(in RayDesc ray, inout RadianceRayHitInfo payload)
 {
     // HitRay

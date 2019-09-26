@@ -164,11 +164,11 @@ float3 EvaluateAshikminShirleySubstrateBrdf(float NdotL, float3 toLight, float N
     float NdotH = dot(normal, h);
     float LdotH = dot(toLight, h);
 
-    float3 diffusePart = (28.0f / (23.0f * PI)) * diffuse * (float3(1.0f, 1.0f, 1.0f) - Ks) * 
+    float3 diffusePart = (28.0f / (23.0f * PI)) * diffuse * (float3(1.0f, 1.0f, 1.0f) - k) * 
                         (1.0f - pow(1.0f - 0.5f * NdotL, 5.0f)) * 
                         (1.0f - pow(1.0f - 0.5f * NdotV, 5.0f));
 
-    float3 specularPart = GGXNormalDistribution(NdotH, roughnessSq) / (4 * LdotH * max(NdotL, NdotV)) * SchlickFresnel(Ks, LdotH);
+    float3 specularPart = GGXNormalDistribution(NdotH, roughnessSq) / (4 * LdotH * max(NdotL, NdotV)) * SchlickFresnel(k, LdotH);
     //[flatten] if (isinf(h.x) || LdotH <= 0.0f) specularPart = float3(0,0,0);
 
     return diffusePart + specularPart;

@@ -42,49 +42,10 @@ cbuffer GlobalConstants : register(b0)
     float PathLengthFilterMax;
 };
 
-struct AreaLightSample
-{
-    float3 Position;
-    float _padding0;
-    float3 Normal;      // todo: pack normal?
-    float _padding1;
-    float3 Intensity;   // todo: pack intensity?
-    float _padding2;
-};
-
-cbuffer AreaLightSamples_ : register(b1)
-{
-    AreaLightSample AreaLightSamples[NUM_LIGHT_SAMPLES_AVAILABLE];
-}
-
-cbuffer MeshConstants : register (b2)
-{
-    uint MeshIndex; // Index used for vertex/index buffer.
-    uint MaterialType;
-    bool IsEmitter;
-    uint DiffuseTextureIndex;
-
-    float3 AreaLightRadiance;
-    float3 Eta;
-    float Roughness;
-    float3 Ks;
-}
-
-struct Vertex
-{
-    float3 normal;
-    float2 texcoord;
-};
-StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);
-StructuredBuffer<uint> IndexBuffers[] : register(t0, space101);
-Texture2D DiffuseTextures[] : register(t0, space102);
-
 SamplerState SamplerLinear : register(s0);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
-// Raytracing output texture, accessed as a UAV
-RWTexture2D<float4> gOutput : register(u0, space0);
 
 #define DefaultRayTMin 0.00001f
 #define DefaultRayTMax 100000.0f

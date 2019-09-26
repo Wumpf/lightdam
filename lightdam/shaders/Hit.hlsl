@@ -1,6 +1,43 @@
 #include "Common.hlsl"
 #include "Brdf.hlsl"
 
+struct AreaLightSample
+{
+    float3 Position;
+    float _padding0;
+    float3 Normal;      // todo: pack normal?
+    float _padding1;
+    float3 Intensity;   // todo: pack intensity?
+    float _padding2;
+};
+
+cbuffer AreaLightSamples_ : register(b1)
+{
+    AreaLightSample AreaLightSamples[NUM_LIGHT_SAMPLES_AVAILABLE];
+}
+
+cbuffer MeshConstants : register (b2)
+{
+    uint MeshIndex; // Index used for vertex/index buffer.
+    uint MaterialType;
+    bool IsEmitter;
+    uint DiffuseTextureIndex;
+
+    float3 AreaLightRadiance;
+    float3 Eta;
+    float Roughness;
+    float3 Ks;
+}
+
+struct Vertex
+{
+    float3 normal;
+    float2 texcoord;
+};
+StructuredBuffer<Vertex> VertexBuffers[] : register(t0, space100);
+StructuredBuffer<uint> IndexBuffers[] : register(t0, space101);
+Texture2D DiffuseTextures[] : register(t0, space102);
+
 #define MATERIAL_MATTE 0
 #define MATERIAL_METAL 1
 #define MATERIAL_SUBSTRATE 2
