@@ -352,6 +352,7 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
             constantUploadBuffer->Eta = material.Eta;
             constantUploadBuffer->Ks = material.Ks;
             constantUploadBuffer->Roughness = material.Roughness;
+            constantUploadBuffer->RoughnessSq = material.Roughness * material.Roughness;
         }
         for (const pbrt::LightSource::SP& lightSource : instance->object->lightSources)
         {

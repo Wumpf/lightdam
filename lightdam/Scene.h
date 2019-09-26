@@ -59,9 +59,9 @@ public:
         uint32_t IsEmitter;
         uint32_t DiffuseTextureIndex;
         DirectX::XMFLOAT3 AreaLightRadiance;
-        float _padding0;
-        DirectX::XMFLOAT3 Eta;
         float Roughness;
+        DirectX::XMFLOAT3 Eta;
+        float RoughnessSq;
         DirectX::XMFLOAT3 Ks;
         float _padding1;
     };

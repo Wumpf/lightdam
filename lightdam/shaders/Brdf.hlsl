@@ -155,7 +155,7 @@ float3 EvaluateLambertBrdf(float3 diffuse)
     return diffuse / PI;
 }
 
-float3 EvaluateAshikminShirleySubstrateBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 k, float roughnessSq, float3 diffuse)
+float3 EvaluateAshikminShirleyBrdf(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 k, float roughnessSq, float3 diffuse)
 {
     // Ashikhmin and Shirley two layer brdf as described in
     // http://www.pbr-book.org/3ed-2018/Reflection_Models/Fresnel_Incidence_Effects.html#fragment-FresnelBlendPrivateData-0
@@ -191,7 +191,7 @@ float3 SampleAshikminShirleySubstrateBrdf(float3 toViewTS, float2 randomSample, 
     }
 
     // todo simplifiy:
-    float3 brdf = EvaluateAshikminShirleySubstrateBrdf(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0.0f, 0.0f, 1.0f), k, roughnessSq, diffuse);
+    float3 brdf = EvaluateAshikminShirleyBrdf(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0.0f, 0.0f, 1.0f), k, roughnessSq, diffuse);
     float pdf = 0.5f * (
         nextRayDirTS.z / PI + 
         GGXNormalDistribution(halfVector.z, roughnessSq) * halfVector.z  / (4.0f * dot(toViewTS, halfVector))

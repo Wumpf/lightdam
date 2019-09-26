@@ -24,8 +24,9 @@ cbuffer MeshConstants : register (b2)
     uint DiffuseTextureIndex;
 
     float3 AreaLightRadiance;
-    float3 Eta;
     float Roughness;
+    float3 Eta;
+    float RoughnessSq;
     float3 Ks;
 }
 
@@ -93,8 +94,21 @@ Vertex GetSurfaceHit(Attributes attrib)
     return outVertex;
 }
 
+float3 EvaluateBRDF(float NdotL, float3 toLight, float NdotV, float3 toView, float3 normal, float3 diffuse)
+{
+    switch (MaterialType)
+    {
+        case MATERIAL_SUBSTRATE:
+            return EvaluateAshikminShirleyBrdf(NdotL, toLight, NdotV, toView, normal, Ks, RoughnessSq, diffuse);
+        case MATERIAL_METAL:
+            return EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, normal, Eta, Ks, RoughnessSq);
+        default:
+            return EvaluateLambertBrdf(diffuse);
+    }
+}
+
 // Returns sampled radiance
-float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse, float RoughnessSq)
+float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse)
 {
     float3 toLight = areaLightSample.Position - worldPosition;
     float lightDistanceSq = dot(toLight, toLight);
@@ -119,20 +133,7 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
         return float3(0.0f, 0.0f, 0.0f);
 #endif
 
-    float3 brdfLightSample;
-
-    if (MaterialType == MATERIAL_SUBSTRATE)
-    {
-        brdfLightSample = EvaluateAshikminShirleySubstrateBrdf(NdotL, toLight, NdotV, toView, hit.normal, Ks, RoughnessSq, diffuse);
-    }
-    else if (MaterialType == MATERIAL_METAL)
-    {
-        brdfLightSample = EvaluateMicrofacetBrdf(NdotL, toLight, NdotV, toView, hit.normal, Eta, Ks, RoughnessSq);
-    }
-    else
-    {
-        brdfLightSample = EvaluateLambertBrdf(diffuse);
-    }
+    float3 brdfLightSample = EvaluateBRDF(NdotL, toLight, NdotV, toView, hit.normal, diffuse);
 
     // lightIntensity = lightIntensity in normal direction (often called I0) -> seen area is smaller to the border
     float irradianceLightSample = NdotL / lightDistanceSq; // Needs to be divided by pdf for this sample. Everything was already normalized beforehand though, so no need here!
@@ -141,50 +142,46 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 world
 
 // Computes next ray direction in tangent space
 // throughput = brdf / pdf
-bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse, float RoughnessSq)
+bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse)
 {
     float2 randomSample = Random2(randomSeed); // todo: use low discrepancy sampling here!
+
+    switch(MaterialType)
+    {
+        case MATERIAL_SUBSTRATE:
+            nextRayDirTS = SampleAshikminShirleySubstrateBrdf(toViewTS, randomSample, Ks, RoughnessSq, diffuse, throughput);
+            break;
+        case MATERIAL_METAL:
+        {
+            float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, Roughness, randomSample);
+            nextRayDirTS = reflect(-toViewTS, microfacetNormalTS);
+            float NdotL = nextRayDirTS.z;
+            float3 F = FresnelDieletricConductorApprox(Eta, Ks, NdotL);
+            //float G1 = GGXSmithMasking(NdotL, NdotV, RoughnessSq);
+            //float G2 = GGXSmithGeometricShadowingFunction(NdotL, NdotV, RoughnessSq);
+            //throughput = F * (G2 / G1);
+            float G2_div_G1 = (2.0f * NdotL) / (NdotL + sqrt(RoughnessSq + (1.0f-RoughnessSq) * NdotL * NdotL));
+            throughput = F * G2_div_G1;
+            break;
+        }
+        default:
+            // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
+            // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
+            // Lambert brdf: brdfNextSample = diffuse / PI;
+            // -> throughput for Lambert: diffuse
+            throughput = diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
+            nextRayDirTS = SampleHemisphereCosine(randomSample);
+            break;
+    }
 
     // For checking importance sampling correctness:
     // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
     // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
     // -> throughput = brdfNextSample * PI
+    //nextRayDirTS = SampleHemisphereCosine(randomSample);
+    //float3 brdfNextSample = EvaluateBRDF(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0,0,1), diffuse);
+    //throughput = brdfNextSample * PI;
 
-    if (MaterialType == MATERIAL_SUBSTRATE)
-    {
-        nextRayDirTS = SampleAshikminShirleySubstrateBrdf(toViewTS, randomSample, Ks, RoughnessSq, diffuse, throughput);
-
-        // Check importance sampling correctness:
-        //nextRayDirTS = SampleHemisphereCosine(randomSample);
-        //float3 brdfNextSample = EvaluateAshikminShirleySubstrateBrdf(nextRayDirTS.z, nextRayDirTS, toViewTS.z, toViewTS, float3(0,0,1), Ks, RoughnessSq, diffuse);
-        //throughput = brdfNextSample * PI;
-    }
-    else if (MaterialType == MATERIAL_METAL)
-    {
-        float3 microfacetNormalTS = SampleGGXVisibleNormal(toViewTS, Roughness, randomSample);
-        nextRayDirTS = reflect(-toViewTS, microfacetNormalTS);
-        float NdotL = nextRayDirTS.z;
-        float3 F = FresnelDieletricConductorApprox(Eta, Ks, NdotL);
-        //float G1 = GGXSmithMasking(NdotL, NdotV, RoughnessSq);
-        //float G2 = GGXSmithGeometricShadowingFunction(NdotL, NdotV, RoughnessSq);
-        //throughput = F * (G2 / G1);
-        float G2_div_G1 = (2.0f * NdotL) / (NdotL + sqrt(RoughnessSq + (1.0f-RoughnessSq) * NdotL * NdotL));
-        throughput = F * G2_div_G1;
-
-        // Check importance sampling correctness:
-        //nextRayDirTS = SampleHemisphereCosine(randomSample);
-        //float3 brdfNextSample = EvaluateMicrofacetBrdf(nextRayDirTS.z, nextRayDirTS, NdotV, toViewTS, float3(0,0,1), eta, k, RoughnessSq);
-        //throughput = brdfNextSample * PI;
-    }
-    else
-    {
-        // throughput *= brdfNextSample * cos(Out, N) / pdfNextSampleGen
-        // With SampleHemisphereCosine: pdfNextSampleGen = cos(Out, N) / PI
-        // Lambert brdf: brdfNextSample = diffuse / PI;
-        // -> throughput for Lambert: diffuse
-        throughput = diffuse; // brdfNextSample * saturate(dot(nextRayDir, hit.normal)) / pdf;
-        nextRayDirTS = SampleHemisphereCosine(randomSample);
-    }
     if (nextRayDirTS.z <= 0.0f)
         return false;
 
@@ -243,13 +240,11 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     return;
 #endif
 
-    float RoughnessSq = Roughness * Roughness;
-
     // Sample area lights.
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=0; i<NUM_LIGHT_SAMPLES_PERHIT; ++i)
-        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse, RoughnessSq);
+        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse);
     payload.radiance += pathThroughput * radiance / NUM_LIGHT_SAMPLES_PERHIT;
 
     // Compute next ray.
@@ -257,7 +252,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
         return;
     float3 nextRayDirTS;
     float3 throughput;
-    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse, RoughnessSq))
+    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse))
         return;
 
     // Pack data for next ray.
