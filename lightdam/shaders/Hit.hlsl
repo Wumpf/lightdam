@@ -108,7 +108,7 @@ float3 EvaluateBRDF(float NdotL, float3 toLight, float NdotV, float3 toView, flo
 }
 
 // Returns sampled radiance
-float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float3 worldPosition, float3 toView, float NdotV, float3 diffuse)
+float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float pathLength, float3 worldPosition, float3 toView, float NdotV, float3 diffuse)
 {
     float3 toLight = areaLightSample.Position - worldPosition;
     float lightDistanceSq = dot(toLight, toLight);
@@ -205,8 +205,8 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     // Start by assuming this is the last event, this makes early outing easier to write!
     payload.pathThroughput_remainingBounces.y = 0;
 
-#ifdef ENABLE_PATHLENGTH_FILTER
     float pathLength = payload.distance + RayTCurrent();
+#ifdef ENABLE_PATHLENGTH_FILTER
     if (pathLength > PathLengthFilterMax)
         return;
 #endif
@@ -244,7 +244,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
     uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=0; i<NUM_LIGHT_SAMPLES_PERHIT; ++i)
-        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, worldPosition, toView, NdotV, diffuse);
+        radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, pathLength, worldPosition, toView, NdotV, diffuse);
     payload.radiance += pathThroughput * radiance / NUM_LIGHT_SAMPLES_PERHIT;
 
     // Compute next ray.
