@@ -108,7 +108,7 @@ void PathTracer::DrawIteration(ID3D12GraphicsCommandList4* commandList, const Ca
     globalConstants->GlobalJitter.x = ComputeHaltonSequence(m_frameNumber, 0);
     globalConstants->GlobalJitter.y = ComputeHaltonSequence(m_frameNumber, 1);
     globalConstants->FrameNumber = m_frameNumber;
-    globalConstants->FrameSeed = m_randomGenerator();
+    globalConstants->FrameSeed = (uint32_t)(((double)ComputeHaltonSequence(m_frameNumber, 2)) * std::numeric_limits<uint32_t>::max()); //m_randomGenerator();
     globalConstants->PathLengthFilterMax = m_pathLengthFilterMax;
     m_lightSampler->GenerateRandomSamples(m_frameNumber, m_areaLightSamples.GetData<LightSampler::LightSample>(frameIndex), m_numAreaLightSamples);
 
@@ -155,8 +155,8 @@ void PathTracer::CreateDescriptorHeap(const Scene& scene)
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    // output srv, output uav, scene tlas, vertex buffers, index buffers, textures
-    descriptorHeapDesc.NumDescriptors = (UINT)(3 + scene.GetMeshes().size() * 2 + scene.GetTextures().size());
+    // output srv, output uav, scene tlas, blue noise, vertex buffers, index buffers, textures
+    descriptorHeapDesc.NumDescriptors = (UINT)(4 + scene.GetMeshes().size() * 2 + scene.GetTextures().size());
     ThrowIfFailed(m_device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&m_staticDescriptorHeap)));
 
     WriteOutputBufferDescriptorsToDescriptorHeap();
@@ -171,6 +171,22 @@ void PathTracer::CreateDescriptorHeap(const Scene& scene)
         tlasView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         tlasView.RaytracingAccelerationStructure.Location = scene.GetTopLevelAccellerationStructure().GetGPUAddress();
         m_device->CreateShaderResourceView(nullptr, &tlasView, descriptorHandle);
+    }
+
+    // BlueNoise
+    {
+        descriptorHandle.Offset(m_descriptorHeapIncrementSize);
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC blueNoise = {};
+        blueNoise.Format = DXGI_FORMAT_R32_UINT; // scene.GetBlueNoiseTexture().GetFormat();
+        blueNoise.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        blueNoise.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        blueNoise.Texture2D.MostDetailedMip = 0;
+        blueNoise.Texture2D.MipLevels = -1;
+        blueNoise.Texture2D.PlaneSlice = 0;
+        blueNoise.Texture2D.ResourceMinLODClamp = 0.0f;
+
+        m_device->CreateShaderResourceView(scene.GetBlueNoiseTexture().Get(), &blueNoise, descriptorHandle);
     }
 
     // Vertex Buffers
@@ -211,7 +227,7 @@ void PathTracer::CreateDescriptorHeap(const Scene& scene)
         descriptorHandle.Offset(m_descriptorHeapIncrementSize);
 
         D3D12_SHADER_RESOURCE_VIEW_DESC textureView = {};
-        textureView.Format = DXGI_FORMAT_UNKNOWN;
+        textureView.Format = texture.GetFormat();
         textureView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         textureView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         textureView.Texture2D.MostDetailedMip = 0;
@@ -297,6 +313,7 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes, uint32_t maxNumText
         {
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE),                    // Output buffer in u0,space0
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),                      // TLAS in t0, space0
+            CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),                      // BlueNoise in t0, space0
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumMeshes, 0, 100, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),         // Vertex buffers
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumMeshes, 0, 101, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),         // Index buffers
             CD3DX12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, maxNumTextures, 0, 102, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC),       // Textures
@@ -314,8 +331,9 @@ void PathTracer::CreateRootSignatures(uint32_t maxNumMeshes, uint32_t maxNumText
     }
     // Hit local root signature.
     {
-        CD3DX12_STATIC_SAMPLER_DESC staticSamplers[1];
+        CD3DX12_STATIC_SAMPLER_DESC staticSamplers[2];
         staticSamplers[0].Init(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+        staticSamplers[1].Init(1, D3D12_FILTER_MIN_MAG_MIP_POINT);
 
         CD3DX12_ROOT_PARAMETER1 params[1];
         params[0].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC); // Constant buffer at b2

@@ -11,7 +11,7 @@ struct RadianceRayHitInfo
     float distance; // -1 on output means no hit
     uint2 pathThroughput_remainingBounces; // packed as half3 + 16 bit uint
     uint nextRayDirection;
-    uint randomSeed;
+    uint sampleIndex;
 };
 
 struct ShadowHitInfo
@@ -42,10 +42,12 @@ cbuffer GlobalConstants : register(b0)
     float PathLengthFilterMax;
 };
 
-SamplerState SamplerLinear : register(s0);
+SamplerState SamplerLinearWrap : register(s0);
+SamplerState SamplerPointRepeat : register(s1);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
+Texture2D<uint> BlueNoiseTexture : register(t1, space0);
 
 #define DefaultRayTMin 0.00001f
 #define DefaultRayTMax 100000.0f

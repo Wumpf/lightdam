@@ -142,9 +142,9 @@ float3 SampleAreaLight(AreaLightSample areaLightSample, Vertex hit, float pathLe
 
 // Computes next ray direction in tangent space
 // throughput = brdf / pdf
-bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint randomSeed, float3 toViewTS, float3 diffuse)
+bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint sampleIndex, float3 toViewTS, float3 diffuse)
 {
-    float2 randomSample = Random2(randomSeed); // todo: use low discrepancy sampling here!
+    float2 randomSample = WeylSequence2D(sampleIndex);
 
     switch(MaterialType)
     {
@@ -187,7 +187,7 @@ bool ComputeNextRay(out float3 nextRayDirTS, out float3 throughput, inout uint r
 
 #ifdef RUSSIAN_ROULETTE
     float continuationProbability = saturate(GetLuminance(throughput));
-    if (Random(randomSeed) >= continuationProbability) // if continuationProbability is zero, path should be stoped -> >=
+    if (WeylSequence(sampleIndex) >= continuationProbability) // if continuationProbability is zero, path should be stoped -> >=
         return false;
     throughput /= continuationProbability; // Only change in spectrum, no energy loss.
 #endif
@@ -234,14 +234,15 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
         return;
     }
     
-    float3 diffuse = DiffuseTextures[DiffuseTextureIndex].SampleLevel(SamplerLinear, hit.texcoord, 0).xyz;
+    float3 diffuse = DiffuseTextures[DiffuseTextureIndex].SampleLevel(SamplerLinearWrap, hit.texcoord, 0).xyz;
 #ifdef DEBUG_VISUALIZE_DIFFUSETEXTURE
     payload.radiance = diffuse;
     return;
 #endif
 
     // Sample area lights.
-    uint randomSampleOffset = RandomUInt(payload.randomSeed) % (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT + 1);
+    uint xorshiftSeed = payload.sampleIndex;
+    uint randomSampleOffset = uint(XorShift(xorshiftSeed) * (NUM_LIGHT_SAMPLES_AVAILABLE - NUM_LIGHT_SAMPLES_PERHIT) + 0.5f);
     float3 radiance = float3(0.0f, 0.0f, 0.0f);
     for (uint i=0; i<NUM_LIGHT_SAMPLES_PERHIT; ++i)
         radiance += SampleAreaLight(AreaLightSamples[randomSampleOffset + i], hit, pathLength, worldPosition, toView, NdotV, diffuse);
@@ -252,7 +253,7 @@ void SurfaceInteraction(inout RadianceRayHitInfo payload, Vertex hit)
         return;
     float3 nextRayDirTS;
     float3 throughput;
-    if (!ComputeNextRay(nextRayDirTS, throughput, payload.randomSeed, toViewTS, diffuse))
+    if (!ComputeNextRay(nextRayDirTS, throughput, payload.sampleIndex, toViewTS, diffuse))
         return;
 
     // Pack data for next ray.

@@ -66,6 +66,7 @@ private:
     static const uint32_t m_numAreaLightSamples = 32;
     std::unique_ptr<class LightSampler> m_lightSampler;
 
+
     Shader m_rayGenLibrary;
     Shader m_hitLibrary;
     Shader m_missLibrary;

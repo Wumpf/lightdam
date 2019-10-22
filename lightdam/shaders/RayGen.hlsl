@@ -27,6 +27,15 @@ export void RayGen()
     float2 dims = float2(DispatchRaysDimensions().xy);
     float2 screenCoord = ((launchIndex.xy + GlobalJitter.xy) / dims.xy) * 2.0 - 1.0f;
 
+    // Thoughts on ideal random number relations for sampling:
+    // * spatially (x/y): blue noise is most pleasant, want to equally distribute error
+    // * temporarily: correlated/low discrepancy want to evently sample hemispheres over time
+    // * from event to event: uncorrelated, one hit should not determine behavior of next
+
+    int3 noiseTextureSize;
+    BlueNoiseTexture.GetDimensions(0, noiseTextureSize.x, noiseTextureSize.y, noiseTextureSize.z);
+    uint blueNoise = BlueNoiseTexture.Load(int3((launchIndex) % noiseTextureSize.xy, 0));
+
     RayDesc ray;
     ray.Origin = CameraPosition;
     ray.Direction = normalize(screenCoord.x * CameraU + screenCoord.y * CameraV + CameraW);
@@ -37,7 +46,7 @@ export void RayGen()
     payload.radiance = float3(0.0f, 0.0f, 0.0f);
     payload.distance = 0.0f;
     payload.pathThroughput_remainingBounces = FloatToHalf(float3(1.0f, 1.0f, 1.0f), NUM_BOUNCES);
-    payload.randomSeed = InitRandomSeed(FrameSeed, launchIndex.x * dims.y + launchIndex.y);
+    payload.sampleIndex = blueNoise ^ FrameSeed;
     float pathLength = 0.0f;
 
     TraceRadianceRay(ray, payload);

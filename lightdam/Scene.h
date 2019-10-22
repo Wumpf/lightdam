@@ -80,6 +80,9 @@ public:
     const std::vector<AreaLightTriangle>& GetAreaLights() const { return m_areaLights; }
     const TopLevelAS& GetTopLevelAccellerationStructure() const { return *m_tlas; }
 
+    // HACK: Blue noise texture is a rendering resource, but texture handling is only implemented here so far!
+    const TextureResource& GetBlueNoiseTexture() const { return m_textureManager.m_textures[m_blueNoiseTextureIndex]; }
+
     // Cameras defined by the scene.
     const std::vector<Camera>& GetCameras() const { return m_cameras; }
     // Retrieves the resolution setting defined by the scene. 0 if no resolution was defined.
@@ -94,6 +97,7 @@ public:
     public:
         uint32_t GetTextureIndexForColor(DirectX::XMFLOAT3 color, ResourceUploadBatch& resourceUpload, ID3D12Device* device);
         uint32_t GetTextureIndexForFile(const std::string& filename, ResourceUploadBatch& resourceUpload, ID3D12Device* device);
+        uint32_t GetTextureIndexForFile(const std::string& filename, ResourceUploadBatch& resourceUpload, DXGI_FORMAT format, ID3D12Device* device);
 
         std::vector<TextureResource> m_textures;
         std::unordered_map<std::string, uint32_t> m_textureIdentifierToTextureIndex;
@@ -103,7 +107,6 @@ public:
     };
 
 private:
-
     Scene();
 
     void CreateAccellerationDataStructure(ID3D12GraphicsCommandList4* commandList, ID3D12Device5* device);
@@ -120,4 +123,5 @@ private:
     uint32_t m_screenHeight = 0;
 
     TextureManager m_textureManager;
+    uint32_t m_blueNoiseTextureIndex;
 };

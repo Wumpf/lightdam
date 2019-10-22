@@ -210,15 +210,14 @@
     <CopyFileToFolders Include="shaders\Config.hlsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="shaders\Brdf.hlsl" />
+    <CopyFileToFolders Include="shaders\bluenoise128.png">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\external\SimpleMath.inl">
       <Filter>external</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\Brdf.hlsl">
-      <Filter>shaders</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>

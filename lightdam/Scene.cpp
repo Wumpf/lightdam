@@ -375,6 +375,8 @@ std::unique_ptr<Scene> Scene::LoadPbrtScene(const std::string& pbrtFilePath, Com
     LogPrint(LogLevel::Info, "Creating accelleration datastructure...");
     scene->CreateAccellerationDataStructure(commandList.Get(), device);
 
+    scene->m_blueNoiseTextureIndex = scene->m_textureManager.GetTextureIndexForFile("shaders/bluenoise128.png", uploadBatch, DXGI_FORMAT_R32_UINT, device);
+
     commandList->Close();
     commandQueue.WaitUntilExectionIsFinished(commandQueue.ExecuteCommandList(commandList.Get()));    
 
@@ -429,6 +431,14 @@ uint32_t Scene::TextureManager::GetTextureIndexForColor(const std::string& textu
 
 uint32_t Scene::TextureManager::GetTextureIndexForFile(const std::string& filename, ResourceUploadBatch& resourceUpload, ID3D12Device* device)
 {
+    // todo: Use stbi_is_hdr to detect hdr formats.
+    // todo: Support single channel. (a bit tricky because then we no longer force to 4 channels meaning we need to expand whenever we encounter 3)
+    const DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    return GetTextureIndexForFile(filename, resourceUpload, format, device);
+}
+
+uint32_t Scene::TextureManager::GetTextureIndexForFile(const std::string& filename, ResourceUploadBatch& resourceUpload, DXGI_FORMAT format, ID3D12Device* device)
+{
     auto identifierIt = m_textureIdentifierToTextureIndex.find(filename);
     if (identifierIt != m_textureIdentifierToTextureIndex.end())
         return identifierIt->second;
@@ -441,9 +451,6 @@ uint32_t Scene::TextureManager::GetTextureIndexForFile(const std::string& filena
         GetTextureIndexForColor(filename, DirectX::XMFLOAT3(1.0f, 0.0f, 1.0f), resourceUpload, device);
     }
 
-    // todo: Use stbi_is_hdr to detect hdr formats.
-    // todo: Support single channel. (a bit tricky because then we no longer force to 4 channels meaning we need to expand whenever we encounter 3)
-    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     auto texture = TextureResource::CreateTexture2D(Utf8toUtf16(filename).c_str(), format, (uint32_t)textureWidth, (uint32_t)textureHeight, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, device);
     auto textureData = resourceUpload.CreateAndMapUploadTexture2D(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 

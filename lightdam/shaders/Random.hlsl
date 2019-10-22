@@ -1,39 +1,46 @@
 #pragma once
 
-// Use this function to get an initial random seed.
-// For details on why this is a good idea check out:
-// http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
-// Don't use frameNumber for frameseed, otherwise the random number just "move" accross the screen!
-uint InitRandomSeed(uint frameSeed, uint invocationID)
+uint WangHash(inout uint seed)
 {
-	uint seed = frameSeed + invocationID;
-
-	// Wang hash.
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
 }
 
-uint RandomUInt(inout uint seed)
+uint XorShiftUInt(inout uint seed)
 {
-	// Xorshift32
-	seed ^= (seed << 13);
-	seed ^= (seed >> 17);
-	seed ^= (seed << 5);
-	return seed;
+    // Xorshift32
+    seed ^= (seed << 13);
+    seed ^= (seed >> 17);
+    seed ^= (seed << 5);
+    return seed;
 }
 
-float Random(inout uint seed)
+float XorShift(inout uint seed)
 {
-	return float(RandomUInt(seed) % 8388593) / 8388593.0;
+    return float(XorShiftUInt(seed) % 8388593) / 8388593.0;
 }
 
-float2 Random2(inout uint seed)
+float2 XorShift2(inout uint seed)
 {
-	return float2(Random(seed), Random(seed));
+    return float2(XorShift(seed), XorShift(seed));
+}
+
+// 2D low discrepancy sequence as detailed here http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+// Integer solution to avoid rounding from https://www.shadertoy.com/view/3lsXW2
+float2 WeylSequence2D(inout uint n)
+{
+    ++n;
+    return frac(float2(n*12664745, n*9560333) / exp2(24.0f));
+}
+
+float WeylSequence(inout uint n)
+{
+    ++n;
+    return frac(float(n*12664745) / exp2(24.0f));
 }
 
 // Sample hemisphere with cosine density in tangent space.
